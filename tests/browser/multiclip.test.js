@@ -180,6 +180,26 @@ const activeIndex = (page) => page.evaluate(() => {
     await page.locator('.clip-row').count() === 12,
     String(await page.locator('.clip-row').count()));
 
+  r.section('Mengetik di pencarian tidak memicu pintasan');
+  // Penjaga input harus membedakan kolom teks dari checkbox: yang satu
+  // menerima ketikan, yang lain tidak boleh mematikan pintasan.
+  await page.locator('.clip-row').nth(3).click();
+  await page.waitForTimeout(250);
+  const before = await activeIndex(page);
+  await page.locator('#clip-filter').focus();
+  await page.keyboard.type('c[]');
+  await page.waitForTimeout(300);
+  r.check('huruf yang diketik masuk ke kolom', (await page.locator('#clip-filter').inputValue()) === 'c[]',
+    await page.locator('#clip-filter').inputValue());
+
+  // Saat difilter tidak ada baris yang tampil, jadi klip aktif baru bisa
+  // dibaca lagi setelah filter dikosongkan.
+  await page.locator('#clip-filter').fill('');
+  await page.waitForTimeout(300);
+  r.check('tombol [ dan ] tidak ikut memindah klip saat mengetik',
+    (await activeIndex(page)) === before,
+    'sebelum=' + before + ' sesudah=' + (await activeIndex(page)));
+
   r.section('Export');
   await page.locator('#btn-run').click();
   await waitIdle(page, 120000);
