@@ -7,6 +7,10 @@ melainkan **kurva animasi**.
 
 Jalankan `index.html` di browser. Tidak ada build step.
 
+Butuh satu berkas saja — untuk ditempel ke CodePen, dikirim lewat chat, atau
+dibuka langsung dari disk? Pakai **`standalone.html`**: CSS dan seluruh
+JavaScript sudah ter-inline di dalamnya, tinggal simpan dan buka.
+
 > **Ini bukan neural network.** Tidak ada model terlatih, tidak ada inferensi.
 > Yang bekerja adalah pipeline signal-processing deterministik di atas
 > keyframe. Hasilnya bisa dijelaskan, bisa diulang persis, dan berjalan
@@ -26,6 +30,7 @@ Animasi terasa patah biasanya karena beberapa hal, dan semuanya ditangani:
 | Gerakan terasa kaku, seperti robot | Tidak ada follow-through / cushion | Dinamika orde dua |
 | Rotasi tiba-tiba melintir sejauh 360° | Quaternion beda hemisphere antar-key | Penyelarasan hemisphere |
 | Kaki meluncur, pose hold melayang | Smoothing diterapkan rata ke seluruh kurva | Motion mask + contact lock |
+| Model berisi puluhan animasi, susah dipilah | — | Panel daftar animasi dengan pencarian |
 
 ---
 
@@ -69,6 +74,22 @@ frame. Overshoot murni muncul saat gerakan berbelok.
 **5. Compact.** Hasil 120 fps itu indah tapi boros. Key yang bisa
 direkonstruksi ulang lewat interpolasi linear dalam batas error tertentu
 dibuang.
+
+### Daftar animasi
+
+Model dari Mixamo dan sejenisnya sering membawa puluhan klip dalam satu
+berkas. Panel **Animasi** menampilkan semuanya sekaligus, lengkap dengan
+durasi, jumlah keyframe, dan tanda apakah klip itu sudah diproses — jadi
+tidak perlu klik satu per satu untuk tahu keadaannya. Daftar di atas 8 klip
+otomatis dapat kotak pencarian. Pindah klip juga bisa lewat tombol `[` dan
+`]`.
+
+Centang **Proses semua klip sekaligus** menentukan cakupan: matikan kalau
+hanya ingin menyetel satu klip tanpa menunggu puluhan lainnya. Hasil klip
+yang sudah diproses sebelumnya tetap disimpan, jadi bisa dikerjakan
+bertahap dengan setelan berbeda per klip. Export selalu menyertakan
+**semua** klip — yang belum diproses ikut sebagai versi original, supaya
+tidak ada animasi yang hilang diam-diam.
 
 ### Motion mask
 
@@ -118,14 +139,22 @@ tidak memperbaiki apa yang tidak rusak, dan tidak merusaknya juga.
 ## Struktur
 
 ```
-index.html              markup + skrip
-css/style.css           tampilan
-js/fluidizer.js         engine (JS murni, tanpa dependensi, bisa dipakai di node)
-js/three-adapter.js     jembatan THREE.AnimationClip ↔ engine
-js/app.js               viewer, kontrol, export
-tests/fluidizer.test.js unit test engine
-tests/browser/          test end-to-end di browser sungguhan
+index.html                  markup + skrip
+css/style.css               tampilan
+js/fluidizer.js             engine (JS murni, tanpa dependensi, bisa dipakai di node)
+js/three-adapter.js         jembatan THREE.AnimationClip ↔ engine
+js/app.js                   viewer, kontrol, export
+standalone.html             hasil rakitan satu berkas (jangan diedit langsung)
+tools/build-standalone.js   perakitnya
+tests/fluidizer.test.js     unit test engine
+tests/standalone.test.js    penjaga sinkronisasi berkas rakitan
+tests/browser/              test end-to-end di browser sungguhan
 ```
+
+`standalone.html` dihasilkan dari sumber di atas, jadi **jangan diedit
+langsung** — ubah sumbernya lalu jalankan `npm run build`. Salah satu unit
+test akan gagal kalau berkas rakitan itu tertinggal dari sumbernya, supaya
+versi basi tidak beredar diam-diam.
 
 Engine sengaja tidak tahu apa-apa soal three.js, jadi bisa dipakai di
 pipeline lain:
@@ -151,7 +180,8 @@ adanya karena tidak punya "kehalusan".
 
 ```bash
 npm install          # hanya untuk test browser
-npm test             # unit test engine (tanpa dependensi)
+npm test             # unit test engine + penjaga berkas rakitan
+npm run build        # rakit ulang standalone.html
 npm run test:browser # end-to-end di Chromium
 npm run test:all
 ```
@@ -164,6 +194,15 @@ jaringan. Kalau sudah punya Chromium sendiri, set `CHROMIUM_PATH`.
 jadi GLB, memuatnya lewat file input aplikasi, meng-enhance, mengekspor
 ulang, lalu memuat hasilnya kembali — memastikan skin dan hierarki bone
 selamat melewati seluruh perjalanan.
+
+`tests/browser/multiclip.test.js` memakai model berisi banyak animasi dan
+memeriksa hal-hal yang gampang rusak diam-diam: statistik per-klip tidak
+tertukar, memproses satu klip tidak membatalkan hasil klip lain, dan
+export tidak kehilangan animasi yang belum diproses.
+
+`tests/browser/standalone.test.js` menjalankan `standalone.html` sendiri,
+bukan cuma memeriksa isinya — berkas itulah yang paling mungkin dipakai
+orang apa adanya.
 
 ---
 

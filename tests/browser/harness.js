@@ -33,13 +33,16 @@ function copyDir(src, dst) {
 }
 
 /** Siapkan salinan situs yang memakai three.js lokal; kembalikan URL file://. */
-function buildSite() {
-  let threeRoot;
+function resolveThree() {
   try {
-    threeRoot = path.dirname(require.resolve('three/package.json', { paths: [ROOT] }));
+    return path.dirname(require.resolve('three/package.json', { paths: [ROOT] }));
   } catch (err) {
     throw new Error('three.js belum terpasang — jalankan `npm install` lebih dulu.');
   }
+}
+
+function buildSite() {
+  const threeRoot = resolveThree();
 
   fs.rmSync(TMP, { recursive: true, force: true });
   fs.mkdirSync(path.join(TMP, 'vendor'), { recursive: true });
@@ -62,6 +65,34 @@ function buildSite() {
   if (remaining) throw new Error('Masih ada script dari jaringan: ' + remaining.join(', '));
 
   return 'file://' + path.join(TMP, 'index.html');
+}
+
+/**
+ * Sama seperti buildSite(), tapi untuk standalone.html — berkas tunggal
+ * hasil rakitan. Tidak ada css/ atau js/ yang perlu disalin; yang perlu
+ * diarahkan ke lokal hanya tag CDN three.js.
+ */
+function buildStandaloneSite() {
+  const threeRoot = resolveThree();
+  const dir = path.join(__dirname, '.tmp-standalone');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(path.join(dir, 'vendor'), { recursive: true });
+  fs.mkdirSync(OUT, { recursive: true });
+
+  const file = path.join(ROOT, 'standalone.html');
+  if (!fs.existsSync(file)) throw new Error('standalone.html belum dibuat — jalankan `npm run build`.');
+  let html = fs.readFileSync(file, 'utf8');
+
+  for (const [from, to] of THREE_FILES) {
+    fs.copyFileSync(path.join(threeRoot, from), path.join(dir, 'vendor', to));
+    html = html.replace(new RegExp('https://[^"\']*/' + to.replace('.', '\\.'), 'g'), 'vendor/' + to);
+  }
+  fs.writeFileSync(path.join(dir, 'index.html'), html);
+
+  const remaining = html.match(/src="https?:\/\/[^"]+"/g);
+  if (remaining) throw new Error('Masih ada script dari jaringan: ' + remaining.join(', '));
+
+  return 'file://' + path.join(dir, 'index.html');
 }
 
 async function launch() {
@@ -105,4 +136,4 @@ function parseGLB(buf) {
 const waitIdle = (page, timeout = 30000) =>
   page.waitForFunction(() => !document.getElementById('overlay').classList.contains('active'), null, { timeout });
 
-module.exports = { buildSite, launch, createReporter, parseGLB, waitIdle, OUT };
+module.exports = { buildSite, buildStandaloneSite, launch, createReporter, parseGLB, waitIdle, OUT };

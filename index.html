@@ -13,7 +13,7 @@
       <span class="brand-mark">MFS 5</span>
       <span class="brand-sub">Motion Fluidity Synthesis &middot; 3D Animation Enhancer</span>
     </div>
-    <div class="header-hint">Space = play/pause &middot; C = bandingkan A/B</div>
+    <div class="header-hint">Space = play/pause &middot; C = bandingkan A/B &middot; [ ] = ganti animasi</div>
   </header>
 
   <div class="workspace">
@@ -28,7 +28,17 @@
           <input type="file" id="file-input" accept=".gltf,.glb,model/gltf-binary,model/gltf+json">
         </div>
         <button id="btn-demo">&#127918; Muat Demo (animasi sengaja patah)</button>
-        <select id="clip-select" style="display:none"></select>
+      </div>
+
+      <div class="section" id="clip-section" style="display:none">
+        <div class="section-title">
+          <span class="step">&#9835;</span> Animasi
+          <span class="clip-count" id="clip-count"></span>
+        </div>
+        <input type="text" id="clip-filter" class="clip-filter" placeholder="Cari animasi&hellip;" style="display:none">
+        <div class="clip-list" id="clip-list" role="listbox" aria-label="Daftar klip animasi"></div>
+        <div class="clip-empty" id="clip-empty" style="display:none">Tidak ada yang cocok.</div>
+        <label class="toggle-row"><span>Proses semua klip sekaligus</span><input type="checkbox" id="opt-all-clips" checked></label>
       </div>
 
       <div class="section">
