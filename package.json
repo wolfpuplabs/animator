@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "build": "node tools/build-standalone.js",
-    "test": "node tests/fluidizer.test.js && node tests/standalone.test.js",
-    "test:browser": "node tests/browser/app.test.js && node tests/browser/framing.test.js && node tests/browser/compare.test.js && node tests/browser/multiclip.test.js && node tests/browser/rigged.test.js && node tests/browser/standalone.test.js",
+    "test": "node tests/fluidizer.test.js && node tests/skinfix.test.js && node tests/standalone.test.js",
+    "test:browser": "node tests/browser/app.test.js && node tests/browser/layout.test.js && node tests/browser/framing.test.js && node tests/browser/compare.test.js && node tests/browser/i18n.test.js && node tests/browser/skin.test.js && node tests/browser/multiclip.test.js && node tests/browser/rigged.test.js && node tests/browser/standalone.test.js",
     "test:all": "npm test && npm run test:browser"
   },
   "devDependencies": {

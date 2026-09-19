@@ -21,11 +21,16 @@
     fileName: 'model',
     trailGroup: null,
     ghost: { root: null, mixer: null, action: null, material: null },
+    skinReport: null,
     presetName: 'balanced',
     clipFilter: ''
   };
 
   var $ = function (id) { return document.getElementById(id); };
+  // Sengaja TIDAK dinamai `t`: fungsi di berkas ini banyak memakai `t`
+  // sebagai variabel waktu, dan hoisting `var t` akan menutupi helper ini
+  // untuk seluruh fungsi — persis yang sempat membuat demo gagal dimuat.
+  var tr = function (key, params) { return I18n.t(key, params); };
 
   /* ================================================================== *
    * Scene
@@ -305,7 +310,7 @@
     ]);
 
     state.fileName = 'demo_hopper';
-    setModel(group, [clip], 'Demo Hopper (8 fps stepped)');
+    setModel(group, [clip], tr('demo.name'));
   }
 
   /* ================================================================== *
@@ -347,6 +352,7 @@
     state.enhancedClips = null;
     state.clipStats = [];
     state.clipIndex = 0;
+    state.skinReport = null;
     state.clipFilter = '';
     $('clip-filter').value = '';
     state.view = 'original';
@@ -356,8 +362,10 @@
     renderClipList();
     rebindAction(false);
     refreshButtons();
+    updateSkinControls();
+    renderSkinReport();
     clearStats();
-    toast('Dimuat: ' + label);
+    toast(tr('toast.loaded', { name: label }));
   }
 
   /** Klip hasil enhance untuk indeks tertentu, atau null kalau belum diproses. */
@@ -432,7 +440,7 @@
   var FILTER_THRESHOLD = 8; // di bawah ini daftar sudah cukup pendek untuk dipindai mata
 
   function clipLabel(clip, index) {
-    return clip.name || ('Clip ' + (index + 1));
+    return clip.name || tr('clip.unnamed', { n: index + 1 });
   }
 
   /**
@@ -477,10 +485,11 @@
       row.setAttribute('aria-selected', i === state.clipIndex ? 'true' : 'false');
 
       var originalKeys = ThreeAdapter.countKeys(clip);
+      var keyWord = tr('clip.key');
       var meta = clip.duration.toFixed(2) + 's · ' +
         (enhanced
-          ? originalKeys.toLocaleString() + ' → ' + ThreeAdapter.countKeys(enhanced).toLocaleString() + ' key'
-          : originalKeys.toLocaleString() + ' key');
+          ? originalKeys.toLocaleString() + ' → ' + ThreeAdapter.countKeys(enhanced).toLocaleString() + ' ' + keyWord
+          : originalKeys.toLocaleString() + ' ' + keyWord);
 
       var body = document.createElement('span');
       body.className = 'clip-body';
@@ -495,11 +504,11 @@
 
       var badge = document.createElement('span');
       badge.className = 'clip-badge' + (enhanced ? ' done' : '');
-      badge.title = enhanced ? 'Sudah di-enhance' : 'Belum diproses';
+      badge.title = enhanced ? tr('clip.enhanced') : tr('clip.pending');
 
       row.appendChild(body);
       row.appendChild(badge);
-      row.title = clipLabel(clip, i) + (enhanced ? ' — sudah di-enhance' : ' — belum diproses');
+      row.title = clipLabel(clip, i) + ' — ' + (enhanced ? tr('clip.enhanced') : tr('clip.pending'));
       row.addEventListener('click', function () { selectClip(i); });
       list.appendChild(row);
     });
@@ -508,8 +517,8 @@
 
     var enhancedCount = 0;
     for (var k = 0; k < clips.length; k++) if (enhancedFor(k)) enhancedCount++;
-    $('clip-count').textContent = clips.length + ' klip' +
-      (enhancedCount ? ' · ' + enhancedCount + ' diproses' : '');
+    $('clip-count').textContent = tr('clip.count', { n: clips.length }) +
+      (enhancedCount ? ' · ' + tr('clip.done', { n: enhancedCount }) : '');
 
     var activeRow = list.querySelector('.clip-row.active');
     if (activeRow && activeRow.scrollIntoView) activeRow.scrollIntoView({ block: 'nearest' });
@@ -544,7 +553,7 @@
     var url = URL.createObjectURL(file);
     var loader = new THREE.GLTFLoader();
 
-    showOverlay('Memuat model 3D…', file.name);
+    showOverlay(tr('overlay.loading'), file.name);
     state.fileName = file.name.replace(/\.[^/.]+$/, '') || 'model';
 
     loader.load(url, function (gltf) {
@@ -552,7 +561,7 @@
       hideOverlay();
       if (!gltf.animations || !gltf.animations.length) {
         setModel(gltf.scene, [], file.name);
-        toast('Model dimuat, tapi tidak ada klip animasi di dalamnya.', true);
+        toast(tr('toast.noanim'), true);
         return;
       }
       setModel(gltf.scene, gltf.animations, file.name);
@@ -564,13 +573,72 @@
       URL.revokeObjectURL(url);
       hideOverlay();
       console.error(err);
-      toast('Gagal membaca file. Untuk .gltf dengan file terpisah, pakai .glb.', true);
+      toast(tr('toast.loadfail'), true);
     });
   }
 
   /* ================================================================== *
    * Enhance
    * ================================================================== */
+
+  function readSkinOptions() {
+    return {
+      smoothing: parseInt($('opt-envelope').value, 10) / 100,
+      iterations: parseInt($('opt-skin-iter').value, 10),
+      minWeight: 0.01,
+      fixOrphans: true
+    };
+  }
+
+  /**
+   * Perbaikan skinning bekerja pada mesh, bukan pada kurva animasi, jadi
+   * dijalankan sekali untuk seluruh model — bukan per klip.
+   */
+  function applySkinRepair() {
+    if (!state.root || !$('opt-skin').checked) return null;
+    if (!ThreeAdapter.hasSkinning(state.root)) return null;
+    try {
+      var result = ThreeAdapter.repairSkinning(state.root, readSkinOptions());
+      return result.meshes ? result : null;
+    } catch (err) {
+      console.error('Perbaikan skinning gagal:', err);
+      toast(tr('toast.skinfail', { err: err.message }), true);
+      return null;
+    }
+  }
+
+  function revertSkinRepair() {
+    if (state.root) ThreeAdapter.restoreSkinning(state.root);
+    state.skinReport = null;
+    renderSkinReport();
+  }
+
+  function renderSkinReport() {
+    var rows = ['row-skin-verts', 'row-skin-fix', 'row-skin-orphan', 'row-skin-env'];
+    var report = state.skinReport;
+    $('skin-report-divider').style.display = report ? '' : 'none';
+    rows.forEach(function (id) { $(id).style.display = report ? '' : 'none'; });
+    if (!report) return;
+
+    var totals = report.totals;
+    $('st-skin-verts').textContent = totals.vertices.toLocaleString() +
+      (totals.meshes > 1 ? ' ' + tr('stats.mesh', { n: totals.meshes }) : '');
+    $('st-skin-fix').textContent = totals.verticesChanged.toLocaleString();
+    $('st-skin-orphan').textContent = totals.influencesPruned.toLocaleString();
+    $('st-skin-env').textContent = totals.weldGroups
+      ? tr('stats.points', { n: totals.weldGroups.toLocaleString() })
+      : tr('stats.none');
+  }
+
+  function updateSkinControls() {
+    var on = $('opt-skin').checked;
+    $('skin-params').style.display = on ? '' : 'none';
+    $('skin-iter-wrap').style.display = on ? '' : 'none';
+
+    var available = state.root && ThreeAdapter.hasSkinning(state.root);
+    $('opt-skin').disabled = !available;
+    $('skin-status').textContent = available ? '' : tr('skin.noskeleton');
+  }
 
   function readOptions() {
     return {
@@ -600,7 +668,15 @@
     }
 
     var results = new Array(targets.length);
-    showOverlay('Mensintesis gerakan…', 'Menyiapkan');
+    showOverlay(tr('overlay.synth'), tr('overlay.prepare'));
+
+    // Dikerjakan sekali di depan: ini operasi mesh, tidak ada hubungannya
+    // dengan jumlah klip.
+    if ($('opt-skin').checked) {
+      $('overlay-sub').textContent = tr('overlay.skin');
+      state.skinReport = applySkinRepair();
+      renderSkinReport();
+    }
 
     // Diproses per klip lewat timeout supaya UI tidak membeku pada model
     // besar, dan progresnya kelihatan.
@@ -612,14 +688,14 @@
       }
       var index = targets[i];
       var clip = state.originalClips[index];
-      $('overlay-sub').textContent = 'Klip ' + (i + 1) + '/' + targets.length +
-        ' — ' + clipLabel(clip, index);
+      $('overlay-sub').textContent = tr('overlay.clip',
+        { i: i + 1, n: targets.length, name: clipLabel(clip, index) });
       try {
         results[i] = ThreeAdapter.enhanceClip(clip, options);
       } catch (err) {
         console.error('Gagal memproses klip', clip.name, err);
         hideOverlay();
-        toast('Gagal memproses klip "' + clipLabel(clip, index) + '": ' + err.message, true);
+        toast(tr('toast.clipfail', { name: clipLabel(clip, index), err: err.message }), true);
         return;
       }
       i++;
@@ -653,8 +729,7 @@
       renderStats();
       renderClipList();
       hideOverlay();
-      toast(targets.length + ' klip selesai dalam ' + elapsed.toFixed(0) +
-        ' ms — tekan C untuk bandingkan A/B.');
+      toast(tr('toast.done', { n: targets.length, ms: elapsed.toFixed(0) }));
     }
 
     setTimeout(step, 30);
@@ -662,6 +737,7 @@
 
   function resetEnhance() {
     clearGhost();
+    revertSkinRepair();
     $('opt-ghost').checked = false;
     state.enhancedClips = null;
     state.clipStats = [];
@@ -670,7 +746,7 @@
     refreshButtons();
     renderClipList();
     clearStats();
-    toast('Kembali ke animasi original.');
+    toast(tr('toast.reset'));
   }
 
   /* ================================================================== *
@@ -698,7 +774,7 @@
     var stats = state.clipStats[state.clipIndex];
     if (!stats) {
       clearStats();
-      if (hasAnyEnhanced()) $('st-jitter').textContent = 'belum diproses';
+      if (hasAnyEnhanced()) $('st-jitter').textContent = tr('stats.pending');
       return;
     }
 
@@ -725,7 +801,8 @@
 
     $('st-fps').textContent = stats.fps.toFixed(0) + ' fps';
     $('st-keys').textContent = stats.inputKeys.toLocaleString() + ' → ' + stats.outputKeys.toLocaleString();
-    $('st-tracks').textContent = stats.tracksProcessed + (stats.tracksCopied ? ' (+' + stats.tracksCopied + ' disalin)' : '');
+    $('st-tracks').textContent = stats.tracksProcessed +
+      (stats.tracksCopied ? ' ' + tr('stats.copied', { n: stats.tracksCopied }) : '');
     $('st-flips').textContent = String(stats.quaternionFlipsFixed);
     $('st-weight').textContent = formatBytes(stats.weight);
     $('st-time').textContent = state.lastElapsed ? state.lastElapsed.toFixed(0) + ' ms' : '—';
@@ -803,7 +880,7 @@
     if (!original || !enhancedFor(state.clipIndex)) return;
 
     if (!THREE.SkeletonUtils || typeof THREE.SkeletonUtils.clone !== 'function') {
-      toast('Bayangan butuh SkeletonUtils, yang gagal dimuat dari CDN.', true);
+      toast(tr('toast.ghostfail'), true);
       $('opt-ghost').checked = false;
       return;
     }
@@ -876,7 +953,7 @@
     var clips = activeClipList();
     var suffix = (state.view === 'enhanced') ? '_enhanced' : '_original';
 
-    showOverlay('Menyiapkan GLB…', clips.length + ' klip animasi');
+    showOverlay(tr('overlay.glb'), tr('overlay.glbsub', { n: clips.length }));
 
     // Reset ke frame 0 supaya pose yang tersimpan adalah pose bind/awal,
     // bukan pose acak di tengah animasi.
@@ -893,20 +970,20 @@
       hideOverlay();
       if (result instanceof ArrayBuffer) {
         download(new Blob([result], { type: 'model/gltf-binary' }), state.fileName + suffix + '.glb');
-        toast('GLB tersimpan (' + clips.length + ' klip).');
+        toast(tr('toast.glbsaved', { n: clips.length }));
       } else {
         // Sebagian build mengabaikan opsi binary; jangan bungkus objek JSON
         // ke dalam Blob biner — itu menghasilkan file rusak.
         download(new Blob([JSON.stringify(result)], { type: 'model/gltf+json' }),
                  state.fileName + suffix + '.gltf');
-        toast('Eksporter mengembalikan glTF JSON, disimpan sebagai .gltf.');
+        toast(tr('toast.gltfsaved'));
       }
     };
 
     var onError = function (err) {
       hideOverlay();
       console.error('GLTFExporter:', err);
-      toast('Gagal mengekspor GLB: ' + (err && err.message ? err.message : err), true);
+      toast(tr('toast.glbfail', { err: (err && err.message ? err.message : err) }), true);
     };
 
     setTimeout(function () {
@@ -933,7 +1010,7 @@
     var json = THREE.AnimationClip.toJSON(clip);
     download(new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' }),
              state.fileName + '_' + (clip.name || 'clip') + suffix + '.json');
-    toast('Klip "' + (clip.name || 'clip') + '" tersimpan sebagai JSON.');
+    toast(tr('toast.jsonsaved', { name: clip.name || 'clip' }));
   }
 
   /* ================================================================== *
@@ -971,9 +1048,7 @@
     var canGhost = !!enhancedFor(state.clipIndex);
     var ghostBox = $('opt-ghost');
     ghostBox.disabled = !canGhost;
-    $('row-ghost').title = canGhost
-      ? 'Tumpuk animasi original sebagai siluet tembus pandang'
-      : 'Jalankan enhance pada klip ini dulu';
+    $('row-ghost').title = canGhost ? tr('ghost.ready') : tr('ghost.locked');
     if (!canGhost && ghostBox.checked) {
       ghostBox.checked = false;
       clearGhost();
@@ -983,15 +1058,14 @@
     $('btn-view-enhanced').classList.toggle('active', state.view === 'enhanced');
 
     if (state.view !== 'enhanced') {
-      $('export-note').textContent = 'Export memakai klip ORIGINAL. Jalankan enhance dulu untuk hasil halus.';
+      $('export-note').textContent = tr('export.original');
     } else {
       var total = state.originalClips.length;
       var done = 0;
       for (var i = 0; i < total; i++) if (enhancedFor(i)) done++;
       $('export-note').textContent = done === total
-        ? 'Export memakai klip HASIL ENHANCE (semua ' + total + ' klip ikut).'
-        : 'Export ikut semua ' + total + ' klip; ' + (total - done) +
-          ' di antaranya masih versi original karena belum diproses.';
+        ? tr('export.all', { n: total })
+        : tr('export.partial', { n: total, k: total - done });
     }
   }
 
@@ -1007,7 +1081,7 @@
   function setPlaying(playing) {
     state.playing = playing;
     $('btn-play').innerHTML = playing ? '&#10073;&#10073;' : '&#9654;';
-    $('btn-play').title = playing ? 'Pause (Space)' : 'Play (Space)';
+    $('btn-play').title = playing ? tr('tr.pause') : tr('tr.play');
   }
 
   function setView(view) {
@@ -1027,7 +1101,7 @@
       var btn = document.createElement('button');
       btn.className = 'preset';
       btn.dataset.preset = key;
-      btn.innerHTML = '<span class="p-name">' + p.label + '</span>' +
+      btn.innerHTML = '<span class="p-name" data-i18n="preset.' + key + '">' + p.label + '</span>' +
                       '<span class="p-meta">' + p.fps + ' fps</span>';
       btn.addEventListener('click', function () { applyPreset(key); });
       grid.appendChild(btn);
@@ -1052,6 +1126,23 @@
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].classList.toggle('active', buttons[i].dataset.preset === state.presetName);
     }
+  }
+
+  /**
+   * Ganti bahasa. Selain teks statis yang ditangani I18n.apply, bagian
+   * yang dibangun JavaScript harus digambar ulang — daftar klip, laporan
+   * statistik, catatan export, dan judul tombol tidak akan ikut berubah
+   * sendiri.
+   */
+  function applyLanguage(lang) {
+    I18n.setLang(lang);
+    renderClipList();
+    renderStats();
+    renderSkinReport();
+    refreshButtons();
+    updateSkinControls();
+    updateLegend();
+    setPlaying(state.playing);
   }
 
   function syncSliderLabels() {
@@ -1085,6 +1176,7 @@
     window.addEventListener('drop', function (e) { e.preventDefault(); });
 
     $('btn-demo').addEventListener('click', buildDemo);
+    $('btn-lang').addEventListener('click', function () { applyLanguage(I18n.other()); });
 
     $('clip-filter').addEventListener('input', function (e) {
       state.clipFilter = e.target.value;
@@ -1102,6 +1194,13 @@
 
     $('opt-trail').addEventListener('change', rebuildTrails);
     $('opt-ghost').addEventListener('change', buildGhost);
+    $('opt-skin').addEventListener('change', updateSkinControls);
+    $('opt-envelope').addEventListener('input', function (e) {
+      $('val-envelope').textContent = e.target.value + '%';
+    });
+    $('opt-skin-iter').addEventListener('input', function (e) {
+      $('val-skin-iter').textContent = e.target.value;
+    });
 
     $('btn-run').addEventListener('click', runEnhance);
     $('btn-reset').addEventListener('click', resetEnhance);
@@ -1176,14 +1275,17 @@
   window.addEventListener('load', function () {
     if (typeof THREE === 'undefined') {
       document.body.innerHTML =
-        '<div style="padding:2rem;font-family:sans-serif;color:#f1f5f9;background:#0b1120;height:100vh">' +
-        '<h2>three.js gagal dimuat</h2><p>Halaman ini mengambil three.js dari CDN. ' +
-        'Periksa koneksi internet lalu muat ulang.</p></div>';
+        '<div style="padding:2rem;font-family:sans-serif;color:#f1f5f9;background:#0b1120;height:100dvh">' +
+        '<h2>' + tr('err.three') + '</h2><p>' + tr('err.threebody') + '</p></div>';
       return;
     }
     buildPresetButtons();
     applyPreset('balanced');
     bindEvents();
+    // Bahasa disetel sebelum apa pun digambar, supaya tidak ada teks yang
+    // sempat muncul dalam bahasa yang salah lalu berkedip berubah.
+    I18n.setLang(I18n.detect());
+    updateSkinControls();
     initScene();
     setPlaying(true);
     buildDemo();

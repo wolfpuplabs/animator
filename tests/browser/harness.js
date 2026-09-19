@@ -96,6 +96,13 @@ function buildStandaloneSite() {
   return 'file://' + path.join(dir, 'index.html');
 }
 
+/*
+ * Test di luar i18n.test.js menegaskan teks berbahasa Indonesia, jadi
+ * halamannya dibuat dengan locale id-ID. Tanpa itu, aplikasi mengikuti
+ * locale bawaan Playwright (en-US) dan tampil dalam bahasa Inggris —
+ * asersi teksnya jadi gagal karena alasan yang tidak ada hubungannya
+ * dengan apa yang sedang diuji.
+ */
 async function launch() {
   let chromium;
   try {
