@@ -159,6 +159,19 @@ async function measure(page) {
 const MIN_FILL = 0.20;
 const MAX_FILL = 0.62;
 
+/*
+ * Seberapa jauh pusat model boleh menyimpang dari pusat kanvas saat
+ * pertama muncul.
+ *
+ * Toleransi longgar tidak berguna di sini: dengan kamera yang membidik
+ * pusat kotak SEPANJANG animasi, model demo mendarat di 0.40, 0.59 —
+ * jelas melenceng, tapi masih lolos ambang 0.18/0.22 yang dipakai versi
+ * pertama test ini.
+ */
+const CENTER_TOLERANCE = 0.08;
+const centered = (box) =>
+  Math.abs(box.cx - 0.5) <= CENTER_TOLERANCE && Math.abs(box.cy - 0.5) <= CENTER_TOLERANCE;
+
 const fill = (box) => Math.max(box.width, box.height);
 const inBand = (box) => fill(box) >= MIN_FILL && fill(box) <= MAX_FILL;
 const describe = (box) =>
@@ -200,8 +213,9 @@ const seek = (page, v) => page.evaluate((val) => {
     box.left.toFixed(3) + ' .. ' + box.right.toFixed(3));
   r.check('tidak terpotong tepi atas/bawah', box.top > 0.01 && box.bottom < 0.99,
     box.top.toFixed(3) + ' .. ' + box.bottom.toFixed(3));
-  r.check('kurang lebih berada di tengah', Math.abs(box.cx - 0.5) < 0.18 && Math.abs(box.cy - 0.5) < 0.22,
-    'pusat di ' + box.cx.toFixed(2) + ', ' + box.cy.toFixed(2));
+  r.check('berada di tengah saat pertama muncul', centered(box),
+    'pusat di ' + box.cx.toFixed(3) + ', ' + box.cy.toFixed(3) +
+    ' (batas ' + CENTER_TOLERANCE + ')');
   r.check('mengisi frame dengan proporsi wajar', inBand(box),
     describe(box) + ' — di luar rentang ' + MIN_FILL + '–' + MAX_FILL);
 
@@ -240,6 +254,11 @@ const seek = (page, v) => page.evaluate((val) => {
       demo.left > 0.01 && demo.right < 0.99 && demo.top > 0.01 && demo.bottom < 0.99,
       JSON.stringify([demo.left.toFixed(2), demo.right.toFixed(2), demo.top.toFixed(2), demo.bottom.toFixed(2)]));
     r.check('demo mengisi frame dengan proporsi wajar', inBand(demo), describe(demo));
+    // Demo melompat, jadi kotak sepanjang animasi jauh lebih tinggi
+    // daripada modelnya sendiri — justru kasus yang paling gampang
+    // membuat pose awal melenceng dari tengah.
+    r.check('demo berada di tengah saat pertama muncul', centered(demo),
+      'pusat di ' + demo.cx.toFixed(3) + ', ' + demo.cy.toFixed(3));
   }
 
   r.section('Final');

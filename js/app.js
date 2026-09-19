@@ -170,14 +170,15 @@
    *    dari tengah. Karena itu vertex-nya dihitung lewat boneTransform,
    *    yaitu posisi setelah skinning.
    */
-  function animatedBounds(object, clip) {
-    var box = new THREE.Box3();
+  function measureBounds(object, clip) {
+    var animated = new THREE.Box3();
+    var rest = new THREE.Box3();
     var targets = collectBoundsTargets(object);
     var v = new THREE.Vector3();
     var probe = new THREE.Box3();
     var subsampled = false;
 
-    function expandAtCurrentPose() {
+    function expandAtCurrentPose(box) {
       object.updateMatrixWorld(true);
       targets.skinned.forEach(function (entry) {
         entry.mesh.skeleton.update();
@@ -195,10 +196,21 @@
       });
     }
 
-    if (!clip || !(clip.duration > 0)) {
-      expandAtCurrentPose();
+    function pad(box) {
+      // Vertex disubsample, jadi titik terjauh bisa terlewat.
+      if (!box.isEmpty() && subsampled) {
+        var size = box.getSize(new THREE.Vector3());
+        box.expandByVector(size.multiplyScalar(0.02));
+      }
       if (box.isEmpty()) box.setFromObject(object);
       return box;
+    }
+
+    if (!clip || !(clip.duration > 0)) {
+      expandAtCurrentPose(animated);
+      pad(animated);
+      rest.copy(animated);
+      return { animated: animated, rest: rest };
     }
 
     var mixer = new THREE.AnimationMixer(object);
@@ -207,38 +219,72 @@
 
     for (var i = 0; i < BOUND_TIME_SAMPLES; i++) {
       mixer.setTime(clip.duration * i / (BOUND_TIME_SAMPLES - 1));
-      expandAtCurrentPose();
+      expandAtCurrentPose(animated);
+      if (i === 0) expandAtCurrentPose(rest);
     }
 
     action.stop();
     mixer.setTime(0);
     object.updateMatrixWorld(true);
 
-    // Vertex disubsample, jadi titik terjauh bisa terlewat. Beri sedikit
-    // kelonggaran supaya model tidak menyentuh tepi frame.
-    if (!box.isEmpty() && subsampled) {
-      var size = box.getSize(new THREE.Vector3());
-      box.expandByVector(size.multiplyScalar(0.02));
-    }
-    if (box.isEmpty()) box.setFromObject(object);
-    return box;
+    pad(animated);
+    pad(rest);
+    return { animated: animated, rest: rest };
   }
 
+  function animatedBounds(object, clip) {
+    return measureBounds(object, clip).animated;
+  }
+
+  // Sejauh mana kamera boleh mundur demi menampung seluruh lintasan
+  // gerak, relatif terhadap ukuran model itu sendiri. Tanpa batas ini,
+  // animasi dengan perpindahan jauh akan menyusutkan modelnya jadi titik.
+  var MAX_TRAVEL_ZOOM_OUT = 2.5;
+
+  /**
+   * Bidik pose awal, tapi ukur jarak dari seluruh lintasan gerak.
+   *
+   * Membidik pusat kotak sepanjang animasi terasa benar di atas kertas,
+   * tapi di frame pertama model justru berada di salah satu ujung
+   * geraknya — jadi saat pertama muncul ia terlihat melenceng dari tengah.
+   * Yang dibidik sekarang adalah pusat pose di frame 0, sementara jaraknya
+   * tetap dihitung agar seluruh lintasan muat, supaya model tidak keluar
+   * frame begitu diputar.
+   */
   function frameCamera(object, clip) {
-    var box = animatedBounds(object, clip);
+    var bounds = measureBounds(object, clip);
+    var box = bounds.animated;
     if (box.isEmpty()) return;
 
-    var size = box.getSize(new THREE.Vector3());
-    var center = box.getCenter(new THREE.Vector3());
-    var maxDim = Math.max(size.x, size.y, size.z) || 1;
-    var fov = state.camera.fov * Math.PI / 180;
-    var dist = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 2.1;
+    var restBox = bounds.rest.isEmpty() ? box : bounds.rest;
+    var target = restBox.getCenter(new THREE.Vector3());
+    var restSize = restBox.getSize(new THREE.Vector3());
+    var maxDim = Math.max(restSize.x, restSize.y, restSize.z) || 1;
 
-    state.camera.position.set(center.x + dist * 0.55, center.y + maxDim * 0.45, center.z + dist);
+    // Jari-jari pose awal, lalu jari-jari seluruh lintasan diukur dari
+    // titik bidik yang sama.
+    var restRadius = restSize.length() / 2 || maxDim / 2;
+    var travelRadius = restRadius;
+    var corner = new THREE.Vector3();
+    for (var i = 0; i < 8; i++) {
+      corner.set(
+        (i & 1) ? box.max.x : box.min.x,
+        (i & 2) ? box.max.y : box.min.y,
+        (i & 4) ? box.max.z : box.min.z
+      );
+      travelRadius = Math.max(travelRadius, corner.distanceTo(target));
+    }
+
+    var radius = Math.min(travelRadius, restRadius * MAX_TRAVEL_ZOOM_OUT);
+    var fov = state.camera.fov * Math.PI / 180;
+    var dist = Math.abs(radius / Math.tan(fov / 2)) * 1.15;
+
+    var dir = new THREE.Vector3(0.48, 0.35, 1).normalize();
+    state.camera.position.copy(target).addScaledVector(dir, dist);
     state.camera.near = Math.max(maxDim / 500, 0.01);
-    state.camera.far = dist * 12;
+    state.camera.far = dist * 12 + radius * 4;
     state.camera.updateProjectionMatrix();
-    state.controls.target.copy(center);
+    state.controls.target.copy(target);
     state.controls.update();
   }
 

@@ -259,10 +259,14 @@ selamat melewati seluruh perjalanan.
 
 `tests/browser/framing.test.js` memuat rig yang bone-nya membawa vertex
 keluar dari kotak bind pose, lalu mengukur dari piksel yang benar-benar
-dirender: model harus utuh, kurang lebih di tengah, dan mengisi frame dengan
-proporsi wajar. Ambangnya sengaja ketat — dengan bug bounding box yang lama,
-model mengisi 77% tinggi frame alih-alih 38%, dan ambang longgar akan lolos
-untuk dua-duanya.
+dirender: model harus utuh, berada di tengah saat pertama muncul, dan
+mengisi frame dengan proporsi wajar.
+
+Ambangnya sengaja ketat, dan itu bukan kehati-hatian berlebihan. Dengan bug
+bounding box yang lama model mengisi 77% tinggi frame alih-alih 38%; dengan
+kamera yang membidik pusat lintasan, pose awal mendarat di 0,37/0,62 alih-
+alih 0,50/0,50. Kedua keadaan itu lolos ambang longgar yang dipakai versi
+pertama test ini.
 
 `tests/browser/compare.test.js` membandingkan screenshot untuk memastikan
 tombol A/B benar-benar mengubah pose yang dirender, bayangan original
@@ -303,6 +307,13 @@ orang apa adanya.
 - **`.gltf` dengan file terpisah tidak bisa dimuat.** Berkas dibaca lewat
   object URL, jadi referensi ke `.bin` dan tekstur di sebelahnya tidak
   ter-resolve. Pakai `.glb`.
+- **Framing membidik pose awal, bukan pusat lintasan.** Kamera diarahkan
+  ke pusat pose di frame 0 supaya model terlihat di tengah saat pertama
+  muncul, sementara jaraknya dihitung agar seluruh lintasan gerak tetap
+  muat. Untuk animasi dengan perpindahan sangat jauh, mundurnya kamera
+  dibatasi 2,5× ukuran model — lewat dari itu modelnya sendiri jadi
+  terlalu kecil untuk dinilai, dan sebagian lintasan dibiarkan keluar
+  frame.
 - **Framing kamera memakai vertex contoh.** Untuk skinned mesh, posisi
   vertex dihitung lewat `boneTransform` di 16 titik waktu — `Box3.setFromObject`
   tidak bisa dipakai karena hanya melihat bind pose dan bisa meleset
