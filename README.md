@@ -7,6 +7,10 @@ melainkan **kurva animasi**.
 
 Jalankan `index.html` di browser. Tidak ada build step.
 
+Butuh satu berkas saja — untuk ditempel ke CodePen, dikirim lewat chat, atau
+dibuka langsung dari disk? Pakai **`standalone.html`**: CSS dan seluruh
+JavaScript sudah ter-inline di dalamnya, tinggal simpan dan buka.
+
 > **Ini bukan neural network.** Tidak ada model terlatih, tidak ada inferensi.
 > Yang bekerja adalah pipeline signal-processing deterministik di atas
 > keyframe. Hasilnya bisa dijelaskan, bisa diulang persis, dan berjalan
@@ -118,14 +122,22 @@ tidak memperbaiki apa yang tidak rusak, dan tidak merusaknya juga.
 ## Struktur
 
 ```
-index.html              markup + skrip
-css/style.css           tampilan
-js/fluidizer.js         engine (JS murni, tanpa dependensi, bisa dipakai di node)
-js/three-adapter.js     jembatan THREE.AnimationClip ↔ engine
-js/app.js               viewer, kontrol, export
-tests/fluidizer.test.js unit test engine
-tests/browser/          test end-to-end di browser sungguhan
+index.html                  markup + skrip
+css/style.css               tampilan
+js/fluidizer.js             engine (JS murni, tanpa dependensi, bisa dipakai di node)
+js/three-adapter.js         jembatan THREE.AnimationClip ↔ engine
+js/app.js                   viewer, kontrol, export
+standalone.html             hasil rakitan satu berkas (jangan diedit langsung)
+tools/build-standalone.js   perakitnya
+tests/fluidizer.test.js     unit test engine
+tests/standalone.test.js    penjaga sinkronisasi berkas rakitan
+tests/browser/              test end-to-end di browser sungguhan
 ```
+
+`standalone.html` dihasilkan dari sumber di atas, jadi **jangan diedit
+langsung** — ubah sumbernya lalu jalankan `npm run build`. Salah satu unit
+test akan gagal kalau berkas rakitan itu tertinggal dari sumbernya, supaya
+versi basi tidak beredar diam-diam.
 
 Engine sengaja tidak tahu apa-apa soal three.js, jadi bisa dipakai di
 pipeline lain:
@@ -151,7 +163,8 @@ adanya karena tidak punya "kehalusan".
 
 ```bash
 npm install          # hanya untuk test browser
-npm test             # unit test engine (tanpa dependensi)
+npm test             # unit test engine + penjaga berkas rakitan
+npm run build        # rakit ulang standalone.html
 npm run test:browser # end-to-end di Chromium
 npm run test:all
 ```
@@ -164,6 +177,10 @@ jaringan. Kalau sudah punya Chromium sendiri, set `CHROMIUM_PATH`.
 jadi GLB, memuatnya lewat file input aplikasi, meng-enhance, mengekspor
 ulang, lalu memuat hasilnya kembali — memastikan skin dan hierarki bone
 selamat melewati seluruh perjalanan.
+
+`tests/browser/standalone.test.js` menjalankan `standalone.html` sendiri,
+bukan cuma memeriksa isinya — berkas itulah yang paling mungkin dipakai
+orang apa adanya.
 
 ---
 
