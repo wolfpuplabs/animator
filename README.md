@@ -32,6 +32,7 @@ Animasi terasa patah biasanya karena beberapa hal, dan semuanya ditangani:
 | Kaki meluncur, pose hold melayang | Smoothing diterapkan rata ke seluruh kurva | Motion mask + contact lock |
 | Model berisi puluhan animasi, susah dipilah | — | Panel daftar animasi dengan pencarian |
 | Susah melihat apa yang berubah | — | Bayangan original, motion trail, tombol A/B |
+| Deformasi jelek di setiap frame | Bobot skin rusak, envelope bergerigi | Panel Skinning & Envelope |
 
 ---
 
@@ -91,6 +92,44 @@ yang sudah diproses sebelumnya tetap disimpan, jadi bisa dikerjakan
 bertahap dengan setelan berbeda per klip. Export selalu menyertakan
 **semua** klip — yang belum diproses ikut sebagai versi original, supaya
 tidak ada animasi yang hilang diam-diam.
+
+### Skinning dan envelope
+
+Menambah frame membuat gerakan lebih halus, tapi kalau bobot skin-nya
+sendiri rusak, deformasinya tetap jelek di **setiap** frame — lengan
+menciut waktu diputar, vertex nyangkut di tempat, batas pengaruh tulang
+bergerigi. Panel **Skinning & Envelope** mengerjakan lapisan itu:
+
+| Tahap | Yang dikerjakan |
+|---|---|
+| Sanitasi | Bobot negatif, NaN, indeks tulang di luar jangkauan |
+| Prune | Buang pengaruh di bawah 1% yang hanya jadi derau |
+| Orphan | Vertex tanpa pengaruh ditambal ke tulang **terdekat** |
+| Envelope | Penghalusan Laplacian medan bobot antar-vertex bertetangga |
+| Normalisasi | Jumlah bobot per vertex dikembalikan ke 1 |
+
+Penghalusan dikerjakan pada **grup weld**, bukan per vertex. Mesh glTF
+hampir selalu terbelah di jahitan UV: satu titik di permukaan bisa jadi
+tiga vertex terpisah yang tidak terhubung di buffer indeks. Kalau
+penghalusan jalan di atas topologi mentah, tiap sisi jahitan dihaluskan
+sendiri-sendiri dan justru meninggalkan garis jahitan yang kelihatan.
+
+Satu hal yang perlu diketahui: **GLTFLoader sudah memanggil
+`normalizeSkinWeights()` saat impor**, jadi untuk berkas glTF bagian
+normalisasi praktis selalu sudah beres sebelum alat ini melihatnya. Kerja
+yang benar-benar terlihat di sana adalah pemangkasan pengaruh remeh dan
+penghalusan envelope. Karena itu laporan menyebut "vertex diubah", bukan
+"bobot dinormalisasi" — angka yang kedua akan selalu nol dan menyesatkan.
+
+Perbaikan selalu dihitung ulang dari data asli, jadi menggeser slider lalu
+menjalankan ulang tidak menghaluskan di atas yang sudah halus. Tombol
+**Kembalikan ke original** memulihkan bobot apa adanya.
+
+### Bahasa
+
+Antarmuka tersedia dalam bahasa Indonesia dan Inggris, dialihkan lewat
+tombol di pojok kanan atas. Pilihan bahasa pertama mengikuti locale
+peramban, lalu diingat di `localStorage`.
 
 ### Membandingkan original dan enhanced
 
@@ -161,12 +200,15 @@ tidak memperbaiki apa yang tidak rusak, dan tidak merusaknya juga.
 ```
 index.html                  markup + skrip
 css/style.css               tampilan
-js/fluidizer.js             engine (JS murni, tanpa dependensi, bisa dipakai di node)
+js/fluidizer.js             engine animasi (JS murni, tanpa dependensi, bisa dipakai di node)
+js/skinfix.js               perbaikan bobot skin & envelope (juga tanpa dependensi)
+js/i18n.js                  kamus dan pengalih bahasa
 js/three-adapter.js         jembatan THREE.AnimationClip ↔ engine
 js/app.js                   viewer, kontrol, export
 standalone.html             hasil rakitan satu berkas (jangan diedit langsung)
 tools/build-standalone.js   perakitnya
-tests/fluidizer.test.js     unit test engine
+tests/fluidizer.test.js     unit test engine animasi
+tests/skinfix.test.js       unit test perbaikan skin
 tests/standalone.test.js    penjaga sinkronisasi berkas rakitan
 tests/browser/              test end-to-end di browser sungguhan
 ```
@@ -232,6 +274,18 @@ memeriksa hal-hal yang gampang rusak diam-diam: statistik per-klip tidak
 tertukar, memproses satu klip tidak membatalkan hasil klip lain, dan
 export tidak kehilangan animasi yang belum diproses.
 
+`tests/browser/skin.test.js` memuat rig yang bobotnya sengaja dirusak,
+lalu membaca accessor `WEIGHTS_0` langsung dari berkas GLB hasil export —
+bukan dari angka di layar — untuk memastikan perbaikannya benar-benar ikut
+ke berkas, tidak menumpuk saat dijalankan dua kali, dan pulih persis
+setelah reset.
+
+`tests/browser/i18n.test.js` memindai seluruh antarmuka untuk sisa kata
+Indonesia setelah beralih ke Inggris. Pemindaiannya tidak peduli huruf
+besar-kecil: `innerText` mengembalikan teks setelah `text-transform`, jadi
+judul seksi yang di-CSS jadi huruf besar akan lolos dari pemindai yang
+case-sensitive.
+
 `tests/browser/layout.test.js` memuat halaman di delapan ukuran layar dan
 memastikan transport bar tidak pernah terdorong keluar layar dan kanvas
 tidak pernah mengecil jadi nol. Kondisi toolbar browser tidak bisa ditiru
@@ -261,6 +315,10 @@ orang apa adanya.
 - **Tinggi app memakai `dvh`.** Browser lama yang belum mengenalnya jatuh
   ke `100vh`, dan di sana bagian bawah halaman bisa tertutup toolbar
   browser pada ponsel/tablet.
+- **Perbaikan skin bekerja pada topologi, bukan pada makna anatomi.**
+  Penghalusan envelope tidak tahu mana siku dan mana lutut; ia hanya
+  melandaikan medan bobot. Untuk rig yang envelope-nya memang sengaja
+  tajam, turunkan atau matikan penghalusannya.
 - **Pemrosesan di main thread.** Klip dikerjakan satu per satu lewat
   `setTimeout` supaya UI tidak membeku, tapi rig sangat besar dengan frame
   rate tinggi tetap akan terasa jeda. Web Worker adalah langkah berikutnya

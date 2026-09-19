@@ -13,86 +13,108 @@
       <span class="brand-mark">MFS 5</span>
       <span class="brand-sub">Motion Fluidity Synthesis &middot; 3D Animation Enhancer</span>
     </div>
-    <div class="header-hint">Space = play/pause &middot; C = bandingkan A/B &middot; [ ] = ganti animasi</div>
+    <div class="header-controls">
+      <div class="header-hint" data-i18n="hint">Space = play/pause &middot; C = bandingkan A/B &middot; [ ] = ganti animasi</div>
+      <button id="btn-lang" class="lang-toggle" data-i18n="lang.switch" data-i18n-title="lang.title">English</button>
+    </div>
   </header>
 
   <div class="workspace">
     <aside class="sidebar">
 
       <div class="section">
-        <div class="section-title"><span class="step">1</span> Sumber Animasi</div>
+        <div class="section-title"><span class="step">1</span> <span data-i18n="sec.source">Sumber Animasi</span></div>
         <div class="dropzone" id="dropzone">
           <div class="icon">&#128230;</div>
-          <div class="label">Taruh file .GLB / .GLTF</div>
-          <div class="sub">atau klik untuk pilih file</div>
+          <div class="label" data-i18n="drop.label">Taruh file .GLB / .GLTF</div>
+          <div class="sub" data-i18n="drop.sub">atau klik untuk pilih file</div>
           <input type="file" id="file-input" accept=".gltf,.glb,model/gltf-binary,model/gltf+json">
         </div>
-        <button id="btn-demo">&#127918; Muat Demo (animasi sengaja patah)</button>
+        <button id="btn-demo" data-i18n="btn.demo">&#127918; Muat Demo (animasi sengaja patah)</button>
       </div>
 
       <div class="section" id="clip-section" style="display:none">
         <div class="section-title">
-          <span class="step">&#9835;</span> Animasi
+          <span class="step">&#9835;</span> <span data-i18n="sec.clips">Animasi</span>
           <span class="clip-count" id="clip-count"></span>
         </div>
-        <input type="text" id="clip-filter" class="clip-filter" placeholder="Cari animasi&hellip;" style="display:none">
+        <input type="text" id="clip-filter" class="clip-filter" placeholder="Cari animasi&hellip;" data-i18n-placeholder="clip.filter" style="display:none">
         <div class="clip-list" id="clip-list" role="listbox" aria-label="Daftar klip animasi"></div>
-        <div class="clip-empty" id="clip-empty" style="display:none">Tidak ada yang cocok.</div>
-        <label class="toggle-row"><span>Proses semua klip sekaligus</span><input type="checkbox" id="opt-all-clips" checked></label>
+        <div class="clip-empty" id="clip-empty" style="display:none" data-i18n="clip.empty">Tidak ada yang cocok.</div>
+        <label class="toggle-row"><span data-i18n="clip.all">Proses semua klip sekaligus</span><input type="checkbox" id="opt-all-clips" checked></label>
       </div>
 
       <div class="section">
-        <div class="section-title"><span class="step">2</span> Mode Kualitas</div>
+        <div class="section-title"><span class="step">2</span> <span data-i18n="sec.quality">Mode Kualitas</span></div>
         <div class="preset-grid" id="preset-grid"></div>
       </div>
 
       <div class="section">
-        <div class="section-title"><span class="step">3</span> Parameter</div>
+        <div class="section-title"><span class="step">3</span> <span data-i18n="sec.params">Parameter</span></div>
 
         <div class="control">
-          <div class="control-head"><span>Target frame rate</span><span class="val" id="val-fps">60 fps</span></div>
+          <div class="control-head"><span data-i18n="opt.fps">Target frame rate</span><span class="val" id="val-fps">60 fps</span></div>
           <input type="range" id="opt-fps" min="12" max="240" step="1" value="60">
-          <div class="control-note">Kerapatan sample hasil rekonstruksi kurva.</div>
+          <div class="control-note" data-i18n="note.fps">Kerapatan sample hasil rekonstruksi kurva.</div>
         </div>
 
         <div class="control">
-          <div class="control-head"><span>Smoothing</span><span class="val" id="val-smooth">45%</span></div>
+          <div class="control-head"><span data-i18n="opt.smooth">Smoothing</span><span class="val" id="val-smooth">45%</span></div>
           <input type="range" id="opt-smooth" min="0" max="100" step="1" value="45">
-          <div class="control-note">Filter bilateral: buang jitter, pertahankan snap.</div>
+          <div class="control-note" data-i18n="note.smooth">Filter bilateral: buang jitter, pertahankan snap.</div>
         </div>
 
         <div class="control">
-          <div class="control-head"><span>Follow-through</span><span class="val" id="val-follow">20%</span></div>
+          <div class="control-head"><span data-i18n="opt.follow">Follow-through</span><span class="val" id="val-follow">20%</span></div>
           <input type="range" id="opt-follow" min="0" max="100" step="1" value="20">
-          <div class="control-note">Overshoot &amp; cushion organik lewat dinamika orde dua.</div>
+          <div class="control-note" data-i18n="note.follow">Overshoot &amp; cushion organik lewat dinamika orde dua.</div>
         </div>
 
         <div class="control">
-          <div class="control-head"><span>Contact lock</span><span class="val" id="val-contact">50%</span></div>
+          <div class="control-head"><span data-i18n="opt.contact">Contact lock</span><span class="val" id="val-contact">50%</span></div>
           <input type="range" id="opt-contact" min="0" max="100" step="1" value="50">
-          <div class="control-note">Jaga pose hold &amp; kontak kaki supaya tidak meluncur.</div>
+          <div class="control-note" data-i18n="note.contact">Jaga pose hold &amp; kontak kaki supaya tidak meluncur.</div>
         </div>
 
         <div class="control">
-          <div class="control-head"><span>Keyframe reduction</span><span class="val" id="val-reduce">12%</span></div>
+          <div class="control-head"><span data-i18n="opt.reduce">Keyframe reduction</span><span class="val" id="val-reduce">12%</span></div>
           <input type="range" id="opt-reduce" min="0" max="100" step="1" value="12">
-          <div class="control-note">Menukar kehalusan dengan ukuran file. Naikkan hanya kalau file terlalu besar.</div>
+          <div class="control-note" data-i18n="note.reduce">Menukar kehalusan dengan ukuran file. Naikkan hanya kalau file terlalu besar.</div>
         </div>
 
-        <label class="toggle-row"><span>Klip looping (pre-roll pegas)</span><input type="checkbox" id="opt-loop" checked></label>
-        <label class="toggle-row"><span>Tampilkan motion trail</span><input type="checkbox" id="opt-trail"></label>
-        <label class="toggle-row" id="row-ghost"><span>Bayangan original (tumpuk)</span><input type="checkbox" id="opt-ghost" disabled></label>
+        <label class="toggle-row"><span data-i18n="opt.loop">Klip looping (pre-roll pegas)</span><input type="checkbox" id="opt-loop" checked></label>
+      </div>
+
+      <div class="section" id="skin-section">
+        <div class="section-title">
+          <span class="step">&#129460;</span> <span data-i18n="sec.skin">Skinning &amp; Envelope</span>
+          <span class="clip-count" id="skin-status"></span>
+        </div>
+        <label class="toggle-row"><span data-i18n="opt.skin">Perbaiki bobot skin</span><input type="checkbox" id="opt-skin"></label>
+        <div class="control-note" data-i18n="note.skin">Bekerja pada mesh, bukan pada frame: buang pengaruh remeh, haluskan batas envelope, normalisasi ulang. Berkas glTF sudah dinormalisasi saat impor, jadi kerja yang terlihat di sini adalah pemangkasan dan envelope.</div>
+
+        <div class="control" id="skin-params" style="display:none">
+          <div class="control-head"><span data-i18n="opt.envelope">Haluskan envelope</span><span class="val" id="val-envelope">50%</span></div>
+          <input type="range" id="opt-envelope" min="0" max="100" step="1" value="50">
+          <div class="control-note" data-i18n="note.envelope">Melandaikan batas pengaruh antar-tulang yang bergerigi.</div>
+        </div>
+        <div class="control" id="skin-iter-wrap" style="display:none">
+          <div class="control-head"><span data-i18n="opt.skiniter">Iterasi</span><span class="val" id="val-skin-iter">2</span></div>
+          <input type="range" id="opt-skin-iter" min="1" max="6" step="1" value="2">
+        </div>
+        <label class="toggle-row"><span data-i18n="opt.trail">Tampilkan motion trail</span><input type="checkbox" id="opt-trail"></label>
+        <label class="toggle-row" id="row-ghost"><span data-i18n="opt.ghost">Bayangan original (tumpuk)</span><input type="checkbox" id="opt-ghost" disabled></label>
       </div>
 
       <div class="section">
-        <button class="btn-run" id="btn-run" disabled>&#9889; Enhance Animation</button>
-        <button class="btn-reset" id="btn-reset" disabled>Kembalikan ke original</button>
+        <button class="btn-run" id="btn-run" disabled data-i18n="btn.run">&#9889; Enhance Animation</button>
+        <button class="btn-reset" id="btn-reset" disabled data-i18n="btn.reset">Kembalikan ke original</button>
       </div>
 
       <div class="section">
-        <div class="section-title"><span class="step">4</span> Export</div>
-        <button class="btn-export" id="btn-export-glb" disabled>&#128190; Export .GLB</button>
-        <button class="btn-export alt" id="btn-export-json" disabled>&#128196; Export klip aktif (.JSON)</button>
+        <div class="section-title"><span class="step">4</span> <span data-i18n="sec.export">Export</span></div>
+        <button class="btn-export" id="btn-export-glb" disabled data-i18n="btn.glb">&#128190; Export .GLB</button>
+        <button class="btn-export alt" id="btn-export-json" disabled data-i18n="btn.json">&#128196; Export klip aktif (.JSON)</button>
         <div class="control-note" id="export-note">Export memakai klip yang sedang ditampilkan.</div>
       </div>
 
@@ -103,40 +125,45 @@
         <div id="canvas-host"></div>
 
         <div class="ab-switch">
-          <button id="btn-view-original" class="active">Original</button>
-          <button id="btn-view-enhanced" class="enhanced" disabled>Enhanced</button>
+          <button id="btn-view-original" class="active" data-i18n="view.original">Original</button>
+          <button id="btn-view-enhanced" class="enhanced" disabled data-i18n="view.enhanced">Enhanced</button>
         </div>
 
         <div class="stats-card" id="stats-card">
-          <h4>Laporan Sintesis</h4>
-          <div class="stat-row hero"><span>Jitter</span><span id="st-jitter">&mdash;</span></div>
-          <div class="stat-row" id="row-recon" style="display:none"><span>&hookrightarrow; kurva mentah</span><span id="st-recon">&mdash;</span></div>
-          <div class="stat-row"><span>Sample rate</span><span id="st-fps">&mdash;</span></div>
-          <div class="stat-row"><span>Keyframe</span><span id="st-keys">&mdash;</span></div>
-          <div class="stat-row"><span>Track diproses</span><span id="st-tracks">&mdash;</span></div>
-          <div class="stat-row" id="row-flips"><span>Rotasi flip diperbaiki</span><span id="st-flips">&mdash;</span></div>
-          <div class="stat-row"><span>Bobot kurva</span><span id="st-weight">&mdash;</span></div>
-          <div class="stat-row"><span>Waktu proses</span><span id="st-time">&mdash;</span></div>
+          <h4 data-i18n="stats.title">Laporan Sintesis</h4>
+          <div class="stat-row hero"><span data-i18n="stats.jitter">Jitter</span><span id="st-jitter">&mdash;</span></div>
+          <div class="stat-row" id="row-recon" style="display:none"><span data-i18n="stats.recon">&hookrightarrow; kurva mentah</span><span id="st-recon">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.fps">Sample rate</span><span id="st-fps">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.keys">Keyframe</span><span id="st-keys">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.tracks">Track diproses</span><span id="st-tracks">&mdash;</span></div>
+          <div class="stat-row" id="row-flips"><span data-i18n="stats.flips">Rotasi flip diperbaiki</span><span id="st-flips">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.weight">Bobot kurva</span><span id="st-weight">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.time">Waktu proses</span><span id="st-time">&mdash;</span></div>
+          <div class="stat-divider" id="skin-report-divider" style="display:none"></div>
+          <div class="stat-row" id="row-skin-verts" style="display:none"><span data-i18n="stats.skinverts">Vertex diperiksa</span><span id="st-skin-verts">&mdash;</span></div>
+          <div class="stat-row" id="row-skin-fix" style="display:none"><span data-i18n="stats.skinchanged">Vertex diubah</span><span id="st-skin-fix">&mdash;</span></div>
+          <div class="stat-row" id="row-skin-orphan" style="display:none"><span data-i18n="stats.skinpruned">Pengaruh remeh dibuang</span><span id="st-skin-orphan">&mdash;</span></div>
+          <div class="stat-row" id="row-skin-env" style="display:none"><span data-i18n="stats.skinenv">Envelope dihaluskan</span><span id="st-skin-env">&mdash;</span></div>
         </div>
 
         <div class="legend" id="legend">
-          <div class="row" id="legend-trail-original"><span class="swatch" style="background:#fb7185"></span> Jalur original</div>
-          <div class="row" id="legend-trail-enhanced"><span class="swatch" style="background:#22d3ee"></span> Jalur enhanced</div>
-          <div class="row" id="legend-ghost"><span class="swatch" style="background:#fb7185;height:8px;border-radius:2px;opacity:.55"></span> Bayangan = original</div>
+          <div class="row" id="legend-trail-original"><span class="swatch" style="background:#fb7185"></span><span data-i18n="legend.trailOriginal">Jalur original</span></div>
+          <div class="row" id="legend-trail-enhanced"><span class="swatch" style="background:#22d3ee"></span><span data-i18n="legend.trailEnhanced">Jalur enhanced</span></div>
+          <div class="row" id="legend-ghost"><span class="swatch" style="background:#fb7185;height:8px;border-radius:2px;opacity:.55"></span><span data-i18n="legend.ghost">Bayangan = original</span></div>
         </div>
 
         <div class="overlay" id="overlay">
           <div class="spinner"></div>
-          <div class="overlay-text" id="overlay-text">Memproses&hellip;</div>
+          <div class="overlay-text" id="overlay-text" data-i18n="overlay.synth">Memproses&hellip;</div>
           <div class="overlay-sub" id="overlay-sub"></div>
         </div>
       </div>
 
       <div class="transport">
-        <button class="icon-btn" id="btn-play" title="Play / Pause (Space)">&#10073;&#10073;</button>
-        <button class="icon-btn" id="btn-stop" title="Kembali ke awal">&#9209;</button>
+        <button class="icon-btn" id="btn-play" data-i18n-title="tr.pause" title="Play / Pause (Space)">&#10073;&#10073;</button>
+        <button class="icon-btn" id="btn-stop" data-i18n-title="tr.stop" title="Kembali ke awal">&#9209;</button>
         <input type="range" id="timeline" min="0" max="1000" step="1" value="0">
-        <select id="speed-select" title="Kecepatan playback">
+        <select id="speed-select" data-i18n-title="tr.speed" title="Kecepatan playback">
           <option value="0.1">0.1&times;</option>
           <option value="0.25">0.25&times;</option>
           <option value="0.5">0.5&times;</option>
@@ -155,7 +182,9 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/fluidizer.js"></script>
+  <script src="js/skinfix.js"></script>
   <script src="js/three-adapter.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -15,7 +15,7 @@ const r = createReporter('Standalone');
 (async () => {
   const url = buildStandaloneSite();
   const browser = await launch();
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const page = await browser.newPage({ locale: 'id-ID', viewport: { width: 1280, height: 800 } });
 
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));

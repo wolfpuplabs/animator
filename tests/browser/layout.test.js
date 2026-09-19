@@ -72,7 +72,7 @@ const probe = (page) => page.evaluate(() => {
 
   for (const size of SIZES) {
     r.section(size.label + ' (' + size.w + '×' + size.h + ')');
-    const page = await browser.newPage({ viewport: { width: size.w, height: size.h } });
+    const page = await browser.newPage({ locale: 'id-ID', viewport: { width: size.w, height: size.h } });
     page.on('pageerror', e => errors.push(size.label + ': ' + e.message));
     page.on('console', m => { if (m.type() === 'error') errors.push(size.label + ': ' + m.text()); });
 

@@ -78,6 +78,18 @@ header {
 
 .brand-sub { font-size: 0.75rem; color: var(--muted); }
 
+.header-controls { display: flex; align-items: center; gap: 0.6rem; }
+
+.lang-toggle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.lang-toggle:hover { border-color: var(--cyan); color: var(--cyan); }
+
 .header-hint {
   font-size: 0.72rem;
   color: var(--muted);
@@ -394,6 +406,12 @@ input[type="range"] {
 .stat-row.hero span:last-child { color: var(--cyan); }
 .stat-row.warn span:last-child { color: var(--amber); }
 
+.stat-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.45rem 0 0.35rem;
+}
+
 .legend {
   position: absolute;
   bottom: 0.8rem;
@@ -504,6 +522,7 @@ input[type="range"] {
 .toast.error { border-left-color: var(--rose); }
 
 @media (max-width: 860px) {
+  .header-hint { display: none; }
   .workspace { flex-direction: column; }
   .sidebar { width: 100%; max-height: 46vh; max-height: 46dvh; }
   .stats-card { display: none; }
@@ -523,86 +542,108 @@ input[type="range"] {
       <span class="brand-mark">MFS 5</span>
       <span class="brand-sub">Motion Fluidity Synthesis &middot; 3D Animation Enhancer</span>
     </div>
-    <div class="header-hint">Space = play/pause &middot; C = bandingkan A/B &middot; [ ] = ganti animasi</div>
+    <div class="header-controls">
+      <div class="header-hint" data-i18n="hint">Space = play/pause &middot; C = bandingkan A/B &middot; [ ] = ganti animasi</div>
+      <button id="btn-lang" class="lang-toggle" data-i18n="lang.switch" data-i18n-title="lang.title">English</button>
+    </div>
   </header>
 
   <div class="workspace">
     <aside class="sidebar">
 
       <div class="section">
-        <div class="section-title"><span class="step">1</span> Sumber Animasi</div>
+        <div class="section-title"><span class="step">1</span> <span data-i18n="sec.source">Sumber Animasi</span></div>
         <div class="dropzone" id="dropzone">
           <div class="icon">&#128230;</div>
-          <div class="label">Taruh file .GLB / .GLTF</div>
-          <div class="sub">atau klik untuk pilih file</div>
+          <div class="label" data-i18n="drop.label">Taruh file .GLB / .GLTF</div>
+          <div class="sub" data-i18n="drop.sub">atau klik untuk pilih file</div>
           <input type="file" id="file-input" accept=".gltf,.glb,model/gltf-binary,model/gltf+json">
         </div>
-        <button id="btn-demo">&#127918; Muat Demo (animasi sengaja patah)</button>
+        <button id="btn-demo" data-i18n="btn.demo">&#127918; Muat Demo (animasi sengaja patah)</button>
       </div>
 
       <div class="section" id="clip-section" style="display:none">
         <div class="section-title">
-          <span class="step">&#9835;</span> Animasi
+          <span class="step">&#9835;</span> <span data-i18n="sec.clips">Animasi</span>
           <span class="clip-count" id="clip-count"></span>
         </div>
-        <input type="text" id="clip-filter" class="clip-filter" placeholder="Cari animasi&hellip;" style="display:none">
+        <input type="text" id="clip-filter" class="clip-filter" placeholder="Cari animasi&hellip;" data-i18n-placeholder="clip.filter" style="display:none">
         <div class="clip-list" id="clip-list" role="listbox" aria-label="Daftar klip animasi"></div>
-        <div class="clip-empty" id="clip-empty" style="display:none">Tidak ada yang cocok.</div>
-        <label class="toggle-row"><span>Proses semua klip sekaligus</span><input type="checkbox" id="opt-all-clips" checked></label>
+        <div class="clip-empty" id="clip-empty" style="display:none" data-i18n="clip.empty">Tidak ada yang cocok.</div>
+        <label class="toggle-row"><span data-i18n="clip.all">Proses semua klip sekaligus</span><input type="checkbox" id="opt-all-clips" checked></label>
       </div>
 
       <div class="section">
-        <div class="section-title"><span class="step">2</span> Mode Kualitas</div>
+        <div class="section-title"><span class="step">2</span> <span data-i18n="sec.quality">Mode Kualitas</span></div>
         <div class="preset-grid" id="preset-grid"></div>
       </div>
 
       <div class="section">
-        <div class="section-title"><span class="step">3</span> Parameter</div>
+        <div class="section-title"><span class="step">3</span> <span data-i18n="sec.params">Parameter</span></div>
 
         <div class="control">
-          <div class="control-head"><span>Target frame rate</span><span class="val" id="val-fps">60 fps</span></div>
+          <div class="control-head"><span data-i18n="opt.fps">Target frame rate</span><span class="val" id="val-fps">60 fps</span></div>
           <input type="range" id="opt-fps" min="12" max="240" step="1" value="60">
-          <div class="control-note">Kerapatan sample hasil rekonstruksi kurva.</div>
+          <div class="control-note" data-i18n="note.fps">Kerapatan sample hasil rekonstruksi kurva.</div>
         </div>
 
         <div class="control">
-          <div class="control-head"><span>Smoothing</span><span class="val" id="val-smooth">45%</span></div>
+          <div class="control-head"><span data-i18n="opt.smooth">Smoothing</span><span class="val" id="val-smooth">45%</span></div>
           <input type="range" id="opt-smooth" min="0" max="100" step="1" value="45">
-          <div class="control-note">Filter bilateral: buang jitter, pertahankan snap.</div>
+          <div class="control-note" data-i18n="note.smooth">Filter bilateral: buang jitter, pertahankan snap.</div>
         </div>
 
         <div class="control">
-          <div class="control-head"><span>Follow-through</span><span class="val" id="val-follow">20%</span></div>
+          <div class="control-head"><span data-i18n="opt.follow">Follow-through</span><span class="val" id="val-follow">20%</span></div>
           <input type="range" id="opt-follow" min="0" max="100" step="1" value="20">
-          <div class="control-note">Overshoot &amp; cushion organik lewat dinamika orde dua.</div>
+          <div class="control-note" data-i18n="note.follow">Overshoot &amp; cushion organik lewat dinamika orde dua.</div>
         </div>
 
         <div class="control">
-          <div class="control-head"><span>Contact lock</span><span class="val" id="val-contact">50%</span></div>
+          <div class="control-head"><span data-i18n="opt.contact">Contact lock</span><span class="val" id="val-contact">50%</span></div>
           <input type="range" id="opt-contact" min="0" max="100" step="1" value="50">
-          <div class="control-note">Jaga pose hold &amp; kontak kaki supaya tidak meluncur.</div>
+          <div class="control-note" data-i18n="note.contact">Jaga pose hold &amp; kontak kaki supaya tidak meluncur.</div>
         </div>
 
         <div class="control">
-          <div class="control-head"><span>Keyframe reduction</span><span class="val" id="val-reduce">12%</span></div>
+          <div class="control-head"><span data-i18n="opt.reduce">Keyframe reduction</span><span class="val" id="val-reduce">12%</span></div>
           <input type="range" id="opt-reduce" min="0" max="100" step="1" value="12">
-          <div class="control-note">Menukar kehalusan dengan ukuran file. Naikkan hanya kalau file terlalu besar.</div>
+          <div class="control-note" data-i18n="note.reduce">Menukar kehalusan dengan ukuran file. Naikkan hanya kalau file terlalu besar.</div>
         </div>
 
-        <label class="toggle-row"><span>Klip looping (pre-roll pegas)</span><input type="checkbox" id="opt-loop" checked></label>
-        <label class="toggle-row"><span>Tampilkan motion trail</span><input type="checkbox" id="opt-trail"></label>
-        <label class="toggle-row" id="row-ghost"><span>Bayangan original (tumpuk)</span><input type="checkbox" id="opt-ghost" disabled></label>
+        <label class="toggle-row"><span data-i18n="opt.loop">Klip looping (pre-roll pegas)</span><input type="checkbox" id="opt-loop" checked></label>
+      </div>
+
+      <div class="section" id="skin-section">
+        <div class="section-title">
+          <span class="step">&#129460;</span> <span data-i18n="sec.skin">Skinning &amp; Envelope</span>
+          <span class="clip-count" id="skin-status"></span>
+        </div>
+        <label class="toggle-row"><span data-i18n="opt.skin">Perbaiki bobot skin</span><input type="checkbox" id="opt-skin"></label>
+        <div class="control-note" data-i18n="note.skin">Bekerja pada mesh, bukan pada frame: buang pengaruh remeh, haluskan batas envelope, normalisasi ulang. Berkas glTF sudah dinormalisasi saat impor, jadi kerja yang terlihat di sini adalah pemangkasan dan envelope.</div>
+
+        <div class="control" id="skin-params" style="display:none">
+          <div class="control-head"><span data-i18n="opt.envelope">Haluskan envelope</span><span class="val" id="val-envelope">50%</span></div>
+          <input type="range" id="opt-envelope" min="0" max="100" step="1" value="50">
+          <div class="control-note" data-i18n="note.envelope">Melandaikan batas pengaruh antar-tulang yang bergerigi.</div>
+        </div>
+        <div class="control" id="skin-iter-wrap" style="display:none">
+          <div class="control-head"><span data-i18n="opt.skiniter">Iterasi</span><span class="val" id="val-skin-iter">2</span></div>
+          <input type="range" id="opt-skin-iter" min="1" max="6" step="1" value="2">
+        </div>
+        <label class="toggle-row"><span data-i18n="opt.trail">Tampilkan motion trail</span><input type="checkbox" id="opt-trail"></label>
+        <label class="toggle-row" id="row-ghost"><span data-i18n="opt.ghost">Bayangan original (tumpuk)</span><input type="checkbox" id="opt-ghost" disabled></label>
       </div>
 
       <div class="section">
-        <button class="btn-run" id="btn-run" disabled>&#9889; Enhance Animation</button>
-        <button class="btn-reset" id="btn-reset" disabled>Kembalikan ke original</button>
+        <button class="btn-run" id="btn-run" disabled data-i18n="btn.run">&#9889; Enhance Animation</button>
+        <button class="btn-reset" id="btn-reset" disabled data-i18n="btn.reset">Kembalikan ke original</button>
       </div>
 
       <div class="section">
-        <div class="section-title"><span class="step">4</span> Export</div>
-        <button class="btn-export" id="btn-export-glb" disabled>&#128190; Export .GLB</button>
-        <button class="btn-export alt" id="btn-export-json" disabled>&#128196; Export klip aktif (.JSON)</button>
+        <div class="section-title"><span class="step">4</span> <span data-i18n="sec.export">Export</span></div>
+        <button class="btn-export" id="btn-export-glb" disabled data-i18n="btn.glb">&#128190; Export .GLB</button>
+        <button class="btn-export alt" id="btn-export-json" disabled data-i18n="btn.json">&#128196; Export klip aktif (.JSON)</button>
         <div class="control-note" id="export-note">Export memakai klip yang sedang ditampilkan.</div>
       </div>
 
@@ -613,40 +654,45 @@ input[type="range"] {
         <div id="canvas-host"></div>
 
         <div class="ab-switch">
-          <button id="btn-view-original" class="active">Original</button>
-          <button id="btn-view-enhanced" class="enhanced" disabled>Enhanced</button>
+          <button id="btn-view-original" class="active" data-i18n="view.original">Original</button>
+          <button id="btn-view-enhanced" class="enhanced" disabled data-i18n="view.enhanced">Enhanced</button>
         </div>
 
         <div class="stats-card" id="stats-card">
-          <h4>Laporan Sintesis</h4>
-          <div class="stat-row hero"><span>Jitter</span><span id="st-jitter">&mdash;</span></div>
-          <div class="stat-row" id="row-recon" style="display:none"><span>&hookrightarrow; kurva mentah</span><span id="st-recon">&mdash;</span></div>
-          <div class="stat-row"><span>Sample rate</span><span id="st-fps">&mdash;</span></div>
-          <div class="stat-row"><span>Keyframe</span><span id="st-keys">&mdash;</span></div>
-          <div class="stat-row"><span>Track diproses</span><span id="st-tracks">&mdash;</span></div>
-          <div class="stat-row" id="row-flips"><span>Rotasi flip diperbaiki</span><span id="st-flips">&mdash;</span></div>
-          <div class="stat-row"><span>Bobot kurva</span><span id="st-weight">&mdash;</span></div>
-          <div class="stat-row"><span>Waktu proses</span><span id="st-time">&mdash;</span></div>
+          <h4 data-i18n="stats.title">Laporan Sintesis</h4>
+          <div class="stat-row hero"><span data-i18n="stats.jitter">Jitter</span><span id="st-jitter">&mdash;</span></div>
+          <div class="stat-row" id="row-recon" style="display:none"><span data-i18n="stats.recon">&hookrightarrow; kurva mentah</span><span id="st-recon">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.fps">Sample rate</span><span id="st-fps">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.keys">Keyframe</span><span id="st-keys">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.tracks">Track diproses</span><span id="st-tracks">&mdash;</span></div>
+          <div class="stat-row" id="row-flips"><span data-i18n="stats.flips">Rotasi flip diperbaiki</span><span id="st-flips">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.weight">Bobot kurva</span><span id="st-weight">&mdash;</span></div>
+          <div class="stat-row"><span data-i18n="stats.time">Waktu proses</span><span id="st-time">&mdash;</span></div>
+          <div class="stat-divider" id="skin-report-divider" style="display:none"></div>
+          <div class="stat-row" id="row-skin-verts" style="display:none"><span data-i18n="stats.skinverts">Vertex diperiksa</span><span id="st-skin-verts">&mdash;</span></div>
+          <div class="stat-row" id="row-skin-fix" style="display:none"><span data-i18n="stats.skinchanged">Vertex diubah</span><span id="st-skin-fix">&mdash;</span></div>
+          <div class="stat-row" id="row-skin-orphan" style="display:none"><span data-i18n="stats.skinpruned">Pengaruh remeh dibuang</span><span id="st-skin-orphan">&mdash;</span></div>
+          <div class="stat-row" id="row-skin-env" style="display:none"><span data-i18n="stats.skinenv">Envelope dihaluskan</span><span id="st-skin-env">&mdash;</span></div>
         </div>
 
         <div class="legend" id="legend">
-          <div class="row" id="legend-trail-original"><span class="swatch" style="background:#fb7185"></span> Jalur original</div>
-          <div class="row" id="legend-trail-enhanced"><span class="swatch" style="background:#22d3ee"></span> Jalur enhanced</div>
-          <div class="row" id="legend-ghost"><span class="swatch" style="background:#fb7185;height:8px;border-radius:2px;opacity:.55"></span> Bayangan = original</div>
+          <div class="row" id="legend-trail-original"><span class="swatch" style="background:#fb7185"></span><span data-i18n="legend.trailOriginal">Jalur original</span></div>
+          <div class="row" id="legend-trail-enhanced"><span class="swatch" style="background:#22d3ee"></span><span data-i18n="legend.trailEnhanced">Jalur enhanced</span></div>
+          <div class="row" id="legend-ghost"><span class="swatch" style="background:#fb7185;height:8px;border-radius:2px;opacity:.55"></span><span data-i18n="legend.ghost">Bayangan = original</span></div>
         </div>
 
         <div class="overlay" id="overlay">
           <div class="spinner"></div>
-          <div class="overlay-text" id="overlay-text">Memproses&hellip;</div>
+          <div class="overlay-text" id="overlay-text" data-i18n="overlay.synth">Memproses&hellip;</div>
           <div class="overlay-sub" id="overlay-sub"></div>
         </div>
       </div>
 
       <div class="transport">
-        <button class="icon-btn" id="btn-play" title="Play / Pause (Space)">&#10073;&#10073;</button>
-        <button class="icon-btn" id="btn-stop" title="Kembali ke awal">&#9209;</button>
+        <button class="icon-btn" id="btn-play" data-i18n-title="tr.pause" title="Play / Pause (Space)">&#10073;&#10073;</button>
+        <button class="icon-btn" id="btn-stop" data-i18n-title="tr.stop" title="Kembali ke awal">&#9209;</button>
         <input type="range" id="timeline" min="0" max="1000" step="1" value="0">
-        <select id="speed-select" title="Kecepatan playback">
+        <select id="speed-select" data-i18n-title="tr.speed" title="Kecepatan playback">
           <option value="0.1">0.1&times;</option>
           <option value="0.25">0.25&times;</option>
           <option value="0.5">0.5&times;</option>
@@ -665,6 +711,340 @@ input[type="range"] {
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+  <script>
+/*
+ * i18n.js — pengalih bahasa Indonesia / Inggris.
+ *
+ * Teks bawaan di index.html tetap berbahasa Indonesia supaya halaman
+ * masih terbaca kalau skrip gagal dimuat; kamus di bawah yang mengganti
+ * isinya saat bahasa diubah.
+ */
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && typeof module.exports === 'object') {
+    module.exports = factory();
+  } else {
+    root.I18n = factory();
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var STORAGE_KEY = 'mfs.lang';
+
+  var DICT = {
+    id: {
+      'hint': 'Space = play/pause · C = bandingkan A/B · [ ] = ganti animasi',
+      'lang.switch': 'English',
+      'lang.title': 'Ganti bahasa',
+
+      'sec.source': 'Sumber Animasi',
+      'drop.label': 'Taruh file .GLB / .GLTF',
+      'drop.sub': 'atau klik untuk pilih file',
+      'btn.demo': '🎮 Muat Demo (animasi sengaja patah)',
+
+      'sec.clips': 'Animasi',
+      'clip.filter': 'Cari animasi…',
+      'clip.empty': 'Tidak ada yang cocok.',
+      'clip.all': 'Proses semua klip sekaligus',
+      'clip.count': '{n} klip',
+      'clip.count.one': '1 klip',
+      'clip.done': '{n} diproses',
+      'clip.key': 'key',
+      'clip.unnamed': 'Clip {n}',
+      'clip.enhanced': 'Sudah di-enhance',
+      'clip.pending': 'Belum diproses',
+
+      'sec.quality': 'Mode Kualitas',
+      'preset.performance': 'Performance',
+      'preset.balanced': 'Balanced',
+      'preset.quality': 'Quality',
+      'preset.ultra': 'Ultra Fluid',
+
+      'sec.params': 'Parameter',
+      'opt.fps': 'Target frame rate',
+      'note.fps': 'Kerapatan sample hasil rekonstruksi kurva.',
+      'opt.smooth': 'Smoothing',
+      'note.smooth': 'Filter bilateral: buang jitter, pertahankan snap.',
+      'opt.follow': 'Follow-through',
+      'note.follow': 'Overshoot & cushion organik lewat dinamika orde dua.',
+      'opt.contact': 'Contact lock',
+      'note.contact': 'Jaga pose hold & kontak kaki supaya tidak meluncur.',
+      'opt.reduce': 'Keyframe reduction',
+      'note.reduce': 'Menukar kehalusan dengan ukuran file. Naikkan hanya kalau file terlalu besar.',
+      'opt.loop': 'Klip looping (pre-roll pegas)',
+      'opt.trail': 'Tampilkan motion trail',
+      'opt.ghost': 'Bayangan original (tumpuk)',
+      'ghost.ready': 'Tumpuk animasi original sebagai siluet tembus pandang',
+      'ghost.locked': 'Jalankan enhance pada klip ini dulu',
+
+      'sec.skin': 'Skinning & Envelope',
+      'opt.skin': 'Perbaiki bobot skin',
+      'note.skin': 'Bekerja pada mesh, bukan pada frame: buang pengaruh remeh, haluskan batas envelope, normalisasi ulang. Berkas glTF sudah dinormalisasi saat impor, jadi kerja yang terlihat di sini adalah pemangkasan dan envelope.',
+      'opt.envelope': 'Haluskan envelope',
+      'note.envelope': 'Melandaikan batas pengaruh antar-tulang yang bergerigi.',
+      'opt.skiniter': 'Iterasi',
+      'skin.noskeleton': 'model tanpa skeleton',
+
+      'btn.run': '⚡ Enhance Animation',
+      'btn.reset': 'Kembalikan ke original',
+
+      'sec.export': 'Export',
+      'btn.glb': '💾 Export .GLB',
+      'btn.json': '📄 Export klip aktif (.JSON)',
+      'export.original': 'Export memakai klip ORIGINAL. Jalankan enhance dulu untuk hasil halus.',
+      'export.all': 'Export memakai klip HASIL ENHANCE (semua {n} klip ikut).',
+      'export.partial': 'Export ikut semua {n} klip; {k} di antaranya masih versi original karena belum diproses.',
+
+      'view.original': 'Original',
+      'view.enhanced': 'Enhanced',
+
+      'stats.title': 'Laporan Sintesis',
+      'stats.jitter': 'Jitter',
+      'stats.recon': '↳ kurva mentah',
+      'stats.fps': 'Sample rate',
+      'stats.keys': 'Keyframe',
+      'stats.tracks': 'Track diproses',
+      'stats.flips': 'Rotasi flip diperbaiki',
+      'stats.weight': 'Bobot kurva',
+      'stats.time': 'Waktu proses',
+      'stats.skinverts': 'Vertex diperiksa',
+      'stats.skinchanged': 'Vertex diubah',
+      'stats.skinpruned': 'Pengaruh remeh dibuang',
+      'stats.skinenv': 'Envelope dihaluskan',
+      'stats.pending': 'belum diproses',
+      'stats.copied': '(+{n} disalin)',
+      'stats.mesh': '({n} mesh)',
+      'stats.points': '{n} titik',
+      'stats.none': 'tidak',
+
+      'legend.trailOriginal': 'Jalur original',
+      'legend.trailEnhanced': 'Jalur enhanced',
+      'legend.ghost': 'Bayangan = original',
+
+      'overlay.loading': 'Memuat model 3D…',
+      'overlay.synth': 'Mensintesis gerakan…',
+      'overlay.prepare': 'Menyiapkan',
+      'overlay.skin': 'Memperbaiki bobot skin…',
+      'overlay.clip': 'Klip {i}/{n} — {name}',
+      'overlay.glb': 'Menyiapkan GLB…',
+      'overlay.glbsub': '{n} klip animasi',
+      'overlay.glbsub.one': '1 klip animasi',
+
+      'tr.play': 'Play (Space)',
+      'tr.pause': 'Pause (Space)',
+      'tr.stop': 'Kembali ke awal',
+      'tr.speed': 'Kecepatan playback',
+
+      'toast.loaded': 'Dimuat: {name}',
+      'toast.noanim': 'Model dimuat, tapi tidak ada klip animasi di dalamnya.',
+      'toast.loadfail': 'Gagal membaca file. Untuk .gltf dengan file terpisah, pakai .glb.',
+      'toast.done': '{n} klip selesai dalam {ms} ms — tekan C untuk bandingkan A/B.',
+      'toast.done.one': '1 klip selesai dalam {ms} ms — tekan C untuk bandingkan A/B.',
+      'toast.reset': 'Kembali ke animasi original.',
+      'toast.clipfail': 'Gagal memproses klip "{name}": {err}',
+      'toast.skinfail': 'Perbaikan skinning gagal: {err}',
+      'toast.glbsaved': 'GLB tersimpan ({n} klip).',
+      'toast.glbsaved.one': 'GLB tersimpan (1 klip).',
+      'toast.gltfsaved': 'Eksporter mengembalikan glTF JSON, disimpan sebagai .gltf.',
+      'toast.glbfail': 'Gagal mengekspor GLB: {err}',
+      'toast.jsonsaved': 'Klip "{name}" tersimpan sebagai JSON.',
+      'toast.ghostfail': 'Bayangan butuh SkeletonUtils, yang gagal dimuat dari CDN.',
+      'demo.name': 'Demo Hopper (8 fps stepped)',
+      'err.three': 'three.js gagal dimuat',
+      'err.threebody': 'Halaman ini mengambil three.js dari CDN. Periksa koneksi internet lalu muat ulang.'
+    },
+
+    en: {
+      'hint': 'Space = play/pause · C = A/B compare · [ ] = switch clip',
+      'lang.switch': 'Indonesia',
+      'lang.title': 'Switch language',
+
+      'sec.source': 'Animation Source',
+      'drop.label': 'Drop a .GLB / .GLTF file',
+      'drop.sub': 'or click to browse',
+      'btn.demo': '🎮 Load demo (deliberately choppy)',
+
+      'sec.clips': 'Animations',
+      'clip.filter': 'Search animations…',
+      'clip.empty': 'Nothing matches.',
+      'clip.all': 'Process all clips at once',
+      'clip.count': '{n} clips',
+      'clip.count.one': '1 clip',
+      'clip.done': '{n} processed',
+      'clip.key': 'keys',
+      'clip.unnamed': 'Clip {n}',
+      'clip.enhanced': 'Enhanced',
+      'clip.pending': 'Not processed yet',
+
+      'sec.quality': 'Quality Mode',
+      'preset.performance': 'Performance',
+      'preset.balanced': 'Balanced',
+      'preset.quality': 'Quality',
+      'preset.ultra': 'Ultra Fluid',
+
+      'sec.params': 'Parameters',
+      'opt.fps': 'Target frame rate',
+      'note.fps': 'Sample density of the reconstructed curve.',
+      'opt.smooth': 'Smoothing',
+      'note.smooth': 'Bilateral filter: removes jitter, keeps snap.',
+      'opt.follow': 'Follow-through',
+      'note.follow': 'Organic overshoot & cushion via second-order dynamics.',
+      'opt.contact': 'Contact lock',
+      'note.contact': 'Keeps holds and foot contacts from sliding.',
+      'opt.reduce': 'Keyframe reduction',
+      'note.reduce': 'Trades smoothness for file size. Raise it only if the file gets too big.',
+      'opt.loop': 'Looping clip (spring pre-roll)',
+      'opt.trail': 'Show motion trail',
+      'opt.ghost': 'Original ghost (overlay)',
+      'ghost.ready': 'Overlay the original animation as a translucent silhouette',
+      'ghost.locked': 'Enhance this clip first',
+
+      'sec.skin': 'Skinning & Envelope',
+      'opt.skin': 'Repair skin weights',
+      'note.skin': 'Works on the mesh, not the frames: drops negligible influences, smooths envelope boundaries, renormalizes. glTF files are already normalized on import, so what you see here is the pruning and the envelope work.',
+      'opt.envelope': 'Smooth envelope',
+      'note.envelope': 'Softens jagged influence boundaries between bones.',
+      'opt.skiniter': 'Iterations',
+      'skin.noskeleton': 'model has no skeleton',
+
+      'btn.run': '⚡ Enhance Animation',
+      'btn.reset': 'Back to original',
+
+      'sec.export': 'Export',
+      'btn.glb': '💾 Export .GLB',
+      'btn.json': '📄 Export active clip (.JSON)',
+      'export.original': 'Export uses the ORIGINAL clips. Run enhance first for smooth output.',
+      'export.all': 'Export uses the ENHANCED clips (all {n} included).',
+      'export.partial': 'Export includes all {n} clips; {k} of them are still the original because they have not been processed.',
+
+      'view.original': 'Original',
+      'view.enhanced': 'Enhanced',
+
+      'stats.title': 'Synthesis Report',
+      'stats.jitter': 'Jitter',
+      'stats.recon': '↳ raw curve',
+      'stats.fps': 'Sample rate',
+      'stats.keys': 'Keyframes',
+      'stats.tracks': 'Tracks processed',
+      'stats.flips': 'Rotation flips fixed',
+      'stats.weight': 'Curve weight',
+      'stats.time': 'Processing time',
+      'stats.skinverts': 'Vertices inspected',
+      'stats.skinchanged': 'Vertices changed',
+      'stats.skinpruned': 'Negligible influences dropped',
+      'stats.skinenv': 'Envelope smoothed',
+      'stats.pending': 'not processed',
+      'stats.copied': '(+{n} copied)',
+      'stats.mesh': '({n} meshes)',
+      'stats.points': '{n} points',
+      'stats.none': 'no',
+
+      'legend.trailOriginal': 'Original path',
+      'legend.trailEnhanced': 'Enhanced path',
+      'legend.ghost': 'Ghost = original',
+
+      'overlay.loading': 'Loading 3D model…',
+      'overlay.synth': 'Synthesizing motion…',
+      'overlay.prepare': 'Preparing',
+      'overlay.skin': 'Repairing skin weights…',
+      'overlay.clip': 'Clip {i}/{n} — {name}',
+      'overlay.glb': 'Preparing GLB…',
+      'overlay.glbsub': '{n} animation clips',
+      'overlay.glbsub.one': '1 animation clip',
+
+      'tr.play': 'Play (Space)',
+      'tr.pause': 'Pause (Space)',
+      'tr.stop': 'Back to start',
+      'tr.speed': 'Playback speed',
+
+      'toast.loaded': 'Loaded: {name}',
+      'toast.noanim': 'Model loaded, but it contains no animation clips.',
+      'toast.loadfail': 'Could not read the file. For .gltf with separate files, use .glb instead.',
+      'toast.done': '{n} clips done in {ms} ms — press C to compare A/B.',
+      'toast.done.one': '1 clip done in {ms} ms — press C to compare A/B.',
+      'toast.reset': 'Back to the original animation.',
+      'toast.clipfail': 'Failed to process clip "{name}": {err}',
+      'toast.skinfail': 'Skin repair failed: {err}',
+      'toast.glbsaved': 'GLB saved ({n} clips).',
+      'toast.glbsaved.one': 'GLB saved (1 clip).',
+      'toast.gltfsaved': 'The exporter returned glTF JSON, saved as .gltf.',
+      'toast.glbfail': 'GLB export failed: {err}',
+      'toast.jsonsaved': 'Clip "{name}" saved as JSON.',
+      'toast.ghostfail': 'The ghost needs SkeletonUtils, which failed to load from the CDN.',
+      'demo.name': 'Demo Hopper (8 fps stepped)',
+      'err.three': 'three.js failed to load',
+      'err.threebody': 'This page pulls three.js from a CDN. Check your connection and reload.'
+    }
+  };
+
+  var current = 'id';
+
+  function detect() {
+    var stored = null;
+    try { stored = localStorage.getItem(STORAGE_KEY); } catch (err) { stored = null; }
+    if (stored && DICT[stored]) return stored;
+    var nav = (typeof navigator !== 'undefined' && (navigator.language || navigator.userLanguage)) || '';
+    return /^id\b/i.test(nav) ? 'id' : 'en';
+  }
+
+  /**
+   * Bentuk tunggal dipilih lewat kunci bersufiks `.one` kalau ada.
+   * Bahasa Inggris menandai jamak, bahasa Indonesia tidak — tanpa ini
+   * antarmuka Inggris menulis "1 clips done".
+   */
+  function t(key, params) {
+    var table = DICT[current] || DICT.id;
+    if (params && Number(params.n) === 1 && table[key + '.one'] !== undefined) {
+      key = key + '.one';
+    }
+    var text = table[key];
+    if (text === undefined) text = (DICT.id[key] !== undefined ? DICT.id[key] : key);
+    if (!params) return text;
+    return text.replace(/\{(\w+)\}/g, function (match, name) {
+      return params[name] !== undefined ? params[name] : match;
+    });
+  }
+
+  /** Terapkan kamus ke seluruh elemen ber-atribut data-i18n. */
+  function apply(scope) {
+    var host = scope || (typeof document !== 'undefined' ? document : null);
+    if (!host) return;
+
+    host.querySelectorAll('[data-i18n]').forEach(function (el) {
+      el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    host.querySelectorAll('[data-i18n-html]').forEach(function (el) {
+      el.innerHTML = t(el.getAttribute('data-i18n-html'));
+    });
+    host.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
+      el.setAttribute('placeholder', t(el.getAttribute('data-i18n-placeholder')));
+    });
+    host.querySelectorAll('[data-i18n-title]').forEach(function (el) {
+      el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
+    });
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.lang = current;
+    }
+  }
+
+  function setLang(lang) {
+    if (!DICT[lang]) return current;
+    current = lang;
+    try { localStorage.setItem(STORAGE_KEY, lang); } catch (err) { /* mode privat */ }
+    apply();
+    return current;
+  }
+
+  function getLang() { return current; }
+  function other() { return current === 'id' ? 'en' : 'id'; }
+  function keys(lang) { return Object.keys(DICT[lang] || {}); }
+
+  return {
+    t: t, apply: apply, setLang: setLang, getLang: getLang,
+    other: other, detect: detect, keys: keys, DICT: DICT
+  };
+});
+  </script>
   <script>
 /*
  * fluidizer.js — MFS (Motion Fluidity Synthesis) core engine.
@@ -1756,6 +2136,405 @@ input[type="range"] {
   </script>
   <script>
 /*
+ * skinfix.js — perbaikan bobot skin dan envelope.
+ *
+ * Ini bukan soal frame. Menambah frame membuat gerakan lebih halus, tapi
+ * kalau bobot skin-nya sendiri rusak, deformasinya tetap jelek di setiap
+ * frame — lengan menciut waktu diputar, vertex nyangkut di tempat, batas
+ * pengaruh tulang bergerigi.
+ *
+ * Yang diperbaiki:
+ *
+ *   1. Sanitasi   — bobot negatif, NaN, indeks tulang di luar jangkauan.
+ *   2. Prune      — buang pengaruh remeh yang hanya jadi derau.
+ *   3. Orphan     — vertex tanpa pengaruh sama sekali; tanpa ini mereka
+ *                   runtuh ke titik asal saat model dianimasikan.
+ *   4. Envelope   — haluskan medan bobot antar-vertex bertetangga, yang
+ *                   memperbaiki batas pengaruh bergerigi dan efek
+ *                   "candy wrapper" saat sendi dipuntir.
+ *   5. Normalisasi— jumlah bobot per vertex harus 1. Kalau tidak, mesh
+ *                   mengempis atau meledak saat tulang bergerak.
+ *
+ * Tidak bergantung pada three.js — array angka biasa, bisa diuji di node.
+ */
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && typeof module.exports === 'object') {
+    module.exports = factory();
+  } else {
+    root.SkinFix = factory();
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var EPS = 1e-8;
+
+  function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+  var DEFAULTS = {
+    maxInfluences: 4,    // glTF menyimpan 4 per set; lebih dari itu perlu set tambahan
+    minWeight: 0.01,     // di bawah ini pengaruhnya tak terlihat, hanya menambah derau
+    smoothing: 0.5,      // kekuatan penghalusan envelope, 0 = mati
+    iterations: 2,
+    weldTolerance: 1e-5, // vertex sedekat ini dianggap titik yang sama
+    fixOrphans: true
+  };
+
+  function resolveOptions(options) {
+    var out = {};
+    for (var key in DEFAULTS) if (DEFAULTS.hasOwnProperty(key)) out[key] = DEFAULTS[key];
+    if (options) {
+      for (var k in options) if (options.hasOwnProperty(k) && options[k] !== undefined) out[k] = options[k];
+    }
+    out.maxInfluences = Math.max(1, Math.min(8, out.maxInfluences | 0));
+    out.minWeight = clamp(out.minWeight, 0, 0.5);
+    out.smoothing = clamp(out.smoothing, 0, 1);
+    out.iterations = Math.max(0, Math.min(10, out.iterations | 0));
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Weld: satukan vertex yang berbagi posisi
+   * ------------------------------------------------------------------ *
+   * Mesh glTF hampir selalu terbelah di jahitan UV dan normal: satu titik
+   * di permukaan bisa jadi tiga vertex terpisah yang tidak terhubung di
+   * buffer indeks. Kalau penghalusan dijalankan di atas topologi mentah,
+   * tiap sisi jahitan dihaluskan sendiri-sendiri dan hasilnya justru
+   * meninggalkan garis jahitan yang kelihatan.
+   */
+  function buildWeld(position, vertexCount, tolerance) {
+    var groupOf = new Int32Array(vertexCount);
+    var members = [];
+    var lookup = Object.create(null);
+    var inv = 1 / Math.max(tolerance, 1e-9);
+
+    for (var i = 0; i < vertexCount; i++) {
+      var x = Math.round(position[i * 3] * inv);
+      var y = Math.round(position[i * 3 + 1] * inv);
+      var z = Math.round(position[i * 3 + 2] * inv);
+      var key = x + '|' + y + '|' + z;
+      var g = lookup[key];
+      if (g === undefined) {
+        g = members.length;
+        lookup[key] = g;
+        members.push([i]);
+      } else {
+        members[g].push(i);
+      }
+      groupOf[i] = g;
+    }
+    return { groupOf: groupOf, members: members };
+  }
+
+  /** Ketetanggaan antar-grup weld, diambil dari sisi segitiga. */
+  function buildAdjacency(index, vertexCount, groupOf, groupCount) {
+    var sets = new Array(groupCount);
+    for (var g = 0; g < groupCount; g++) sets[g] = Object.create(null);
+
+    function link(a, b) {
+      var ga = groupOf[a], gb = groupOf[b];
+      if (ga === gb) return;
+      sets[ga][gb] = 1;
+      sets[gb][ga] = 1;
+    }
+
+    if (index && index.length) {
+      for (var t = 0; t + 2 < index.length; t += 3) {
+        link(index[t], index[t + 1]);
+        link(index[t + 1], index[t + 2]);
+        link(index[t + 2], index[t]);
+      }
+    } else {
+      for (var v = 0; v + 2 < vertexCount; v += 3) {
+        link(v, v + 1);
+        link(v + 1, v + 2);
+        link(v + 2, v);
+      }
+    }
+
+    var out = new Array(groupCount);
+    for (var k = 0; k < groupCount; k++) {
+      var keys = Object.keys(sets[k]);
+      var arr = new Int32Array(keys.length);
+      for (var n = 0; n < keys.length; n++) arr[n] = +keys[n];
+      out[k] = arr;
+    }
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Operasi pada satu daftar pengaruh
+   * ------------------------------------------------------------------ */
+
+  /** Daftar pengaruh = array {idx, w}. Disortir besar ke kecil. */
+  function prune(list, maxInfluences, minWeight) {
+    var kept = [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].w > minWeight) kept.push(list[i]);
+    }
+    // Kalau semua di bawah ambang, jangan buang semuanya — sisakan yang
+    // terbesar, kalau tidak vertexnya jadi orphan buatan kita sendiri.
+    if (!kept.length && list.length) {
+      var best = list[0];
+      for (var j = 1; j < list.length; j++) if (list[j].w > best.w) best = list[j];
+      if (best.w > 0) kept.push(best);
+    }
+    kept.sort(function (a, b) { return b.w - a.w; });
+    if (kept.length > maxInfluences) kept.length = maxInfluences;
+    return kept;
+  }
+
+  function normalize(list) {
+    var sum = 0;
+    for (var i = 0; i < list.length; i++) sum += list[i].w;
+    if (sum < EPS) return false;
+    var inv = 1 / sum;
+    for (var j = 0; j < list.length; j++) list[j].w *= inv;
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Entry point
+   * ------------------------------------------------------------------ */
+
+  /**
+   * @param {Object} mesh {position, index, skinIndex, skinWeight, vertexCount,
+   *                       bonePositions?, boneCount?}
+   *        bonePositions dipakai untuk menambal vertex orphan: dipilih
+   *        tulang terdekat dari posisi vertex (ruang bind).
+   * @param {Object} options lihat DEFAULTS
+   * @returns {{skinIndex, skinWeight, stats}}
+   */
+  function repair(mesh, options) {
+    var opt = resolveOptions(options);
+    var count = mesh.vertexCount;
+    var srcIndex = mesh.skinIndex;
+    var srcWeight = mesh.skinWeight;
+    var stride = Math.max(1, Math.round(srcWeight.length / Math.max(count, 1)));
+    var boneCount = mesh.boneCount ||
+      (mesh.bonePositions ? mesh.bonePositions.length : 0);
+
+    var stats = {
+      vertexCount: count,
+      stride: stride,
+      orphansFixed: 0,
+      unnormalizedFixed: 0,
+      negativeOrInvalidFixed: 0,
+      outOfRangeFixed: 0,
+      influencesPruned: 0,
+      maxInfluencesBefore: 0,
+      maxInfluencesAfter: 0,
+      weldGroups: 0,
+      smoothedGroups: 0,
+      verticesChanged: 0,
+      maxWeightErrorBefore: 0,
+      maxWeightErrorAfter: 0
+    };
+
+    // --- 1 & 2: sanitasi + prune
+    var lists = new Array(count);
+    for (var v = 0; v < count; v++) {
+      var raw = [];
+      var sum = 0;
+      var used = 0;
+      for (var s = 0; s < stride; s++) {
+        var bi = srcIndex[v * stride + s];
+        var w = srcWeight[v * stride + s];
+
+        if (!isFinite(w) || w < 0) { w = 0; stats.negativeOrInvalidFixed++; }
+        if (!isFinite(bi) || bi < 0 || (boneCount && bi >= boneCount)) {
+          if (w > 0) stats.outOfRangeFixed++;
+          bi = 0; w = 0;
+        }
+        if (w > 0) { used++; sum += w; raw.push({ idx: bi | 0, w: w }); }
+      }
+      if (used > stats.maxInfluencesBefore) stats.maxInfluencesBefore = used;
+      var err = Math.abs(sum - 1);
+      if (used > 0 && err > stats.maxWeightErrorBefore) stats.maxWeightErrorBefore = err;
+
+      var pruned = prune(raw, opt.maxInfluences, opt.minWeight);
+      stats.influencesPruned += Math.max(0, raw.length - pruned.length);
+      lists[v] = pruned;
+    }
+
+    // --- 3: vertex tanpa pengaruh
+    if (opt.fixOrphans) {
+      for (var o = 0; o < count; o++) {
+        if (lists[o].length) continue;
+        stats.orphansFixed++;
+        lists[o] = [{ idx: nearestBone(mesh, o), w: 1 }];
+      }
+    }
+
+    // --- 4: penghalusan envelope
+    var weld = null;
+    if (opt.smoothing > 0 && opt.iterations > 0 && count > 2) {
+      weld = buildWeld(mesh.position, count, opt.weldTolerance);
+      stats.weldGroups = weld.members.length;
+      var adjacency = buildAdjacency(mesh.index, count, weld.groupOf, weld.members.length);
+      smoothEnvelope(lists, weld, adjacency, opt, stats);
+    }
+
+    // --- 5: normalisasi akhir
+    var outIndex = new Uint16Array(count * opt.maxInfluences);
+    var outWeight = new Float32Array(count * opt.maxInfluences);
+
+    /*
+     * Berapa vertex yang bobotnya benar-benar berubah.
+     *
+     * Ini ukuran yang jujur tentang seberapa banyak kerja yang terjadi.
+     * Menghitung "bobot yang dinormalisasi" saja menyesatkan pada berkas
+     * glTF: GLTFLoader sudah memanggil normalizeSkinWeights saat impor,
+     * jadi angka itu praktis selalu nol di sana meski perbaikan lain
+     * (pemangkasan pengaruh remeh, penghalusan envelope) tetap bekerja.
+     */
+    function changedFromSource(v, list) {
+      var src = Object.create(null);
+      for (var s = 0; s < stride; s++) {
+        var w = srcWeight[v * stride + s];
+        if (isFinite(w) && w > 0) src[srcIndex[v * stride + s]] = (src[srcIndex[v * stride + s]] || 0) + w;
+      }
+      var seen = Object.create(null);
+      for (var i = 0; i < list.length; i++) {
+        seen[list[i].idx] = 1;
+        if (Math.abs((src[list[i].idx] || 0) - list[i].w) > 1e-4) return true;
+      }
+      for (var key in src) if (!seen[key] && src[key] > 1e-4) return true;
+      return false;
+    }
+
+    for (var k = 0; k < count; k++) {
+      var list = lists[k];
+      var before = 0;
+      for (var a = 0; a < list.length; a++) before += list[a].w;
+      if (Math.abs(before - 1) > 1e-4 && list.length) stats.unnormalizedFixed++;
+      if (!normalize(list) && list.length) { list[0].w = 1; }
+
+      if (list.length > stats.maxInfluencesAfter) stats.maxInfluencesAfter = list.length;
+      if (changedFromSource(k, list)) stats.verticesChanged++;
+
+      var after = 0;
+      for (var b = 0; b < list.length; b++) {
+        outIndex[k * opt.maxInfluences + b] = list[b].idx;
+        outWeight[k * opt.maxInfluences + b] = list[b].w;
+        after += list[b].w;
+      }
+      if (list.length) {
+        var e2 = Math.abs(after - 1);
+        if (e2 > stats.maxWeightErrorAfter) stats.maxWeightErrorAfter = e2;
+      }
+    }
+
+    stats.influencesPerVertex = opt.maxInfluences;
+    return { skinIndex: outIndex, skinWeight: outWeight, stats: stats };
+  }
+
+  /** Tulang terdekat dari sebuah vertex, untuk menambal orphan. */
+  function nearestBone(mesh, vertexIndex) {
+    var bones = mesh.bonePositions;
+    if (!bones || !bones.length) return 0;
+    var px = mesh.position[vertexIndex * 3];
+    var py = mesh.position[vertexIndex * 3 + 1];
+    var pz = mesh.position[vertexIndex * 3 + 2];
+    var best = 0, bestD = Infinity;
+    for (var i = 0; i < bones.length; i++) {
+      var dx = bones[i][0] - px, dy = bones[i][1] - py, dz = bones[i][2] - pz;
+      var d = dx * dx + dy * dy + dz * dz;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  }
+
+  /**
+   * Penghalusan Laplacian pada medan bobot.
+   *
+   * Dikerjakan per grup weld, bukan per vertex, supaya jahitan UV tidak
+   * ikut jadi batas penghalusan. Hasil tiap iterasi langsung dipangkas
+   * kembali ke batas pengaruh, kalau tidak jumlah pengaruh per vertex akan
+   * membengkak tiap iterasi.
+   */
+  function smoothEnvelope(lists, weld, adjacency, opt, stats) {
+    var members = weld.members;
+    var groupCount = members.length;
+
+    // bobot gabungan per grup (rata-rata anggotanya)
+    var groupWeights = new Array(groupCount);
+    for (var g = 0; g < groupCount; g++) {
+      groupWeights[g] = mergeLists(members[g].map(function (v) { return lists[v]; }));
+    }
+
+    for (var iter = 0; iter < opt.iterations; iter++) {
+      var next = new Array(groupCount);
+      for (var i = 0; i < groupCount; i++) {
+        var neighbors = adjacency[i];
+        if (!neighbors.length) { next[i] = groupWeights[i]; continue; }
+
+        var acc = Object.create(null);
+        var own = groupWeights[i];
+        for (var a = 0; a < own.length; a++) {
+          acc[own[a].idx] = (acc[own[a].idx] || 0) + own[a].w * (1 - opt.smoothing);
+        }
+        var share = opt.smoothing / neighbors.length;
+        for (var n = 0; n < neighbors.length; n++) {
+          var nb = groupWeights[neighbors[n]];
+          for (var b = 0; b < nb.length; b++) {
+            acc[nb[b].idx] = (acc[nb[b].idx] || 0) + nb[b].w * share;
+          }
+        }
+
+        var list = [];
+        for (var key in acc) list.push({ idx: +key, w: acc[key] });
+        list = prune(list, opt.maxInfluences, opt.minWeight);
+        normalize(list);
+        next[i] = list;
+        if (iter === 0) stats.smoothedGroups++;
+      }
+      groupWeights = next;
+    }
+
+    // sebarkan kembali ke tiap vertex anggota grup
+    for (var gg = 0; gg < groupCount; gg++) {
+      var src = groupWeights[gg];
+      var group = members[gg];
+      for (var m = 0; m < group.length; m++) {
+        lists[group[m]] = src.map(function (e) { return { idx: e.idx, w: e.w }; });
+      }
+    }
+  }
+
+  /** Gabungkan beberapa daftar pengaruh jadi satu rata-rata. */
+  function mergeLists(listArray) {
+    if (listArray.length === 1) {
+      return listArray[0].map(function (e) { return { idx: e.idx, w: e.w }; });
+    }
+    var acc = Object.create(null);
+    for (var i = 0; i < listArray.length; i++) {
+      var l = listArray[i];
+      for (var j = 0; j < l.length; j++) acc[l[j].idx] = (acc[l[j].idx] || 0) + l[j].w;
+    }
+    var out = [];
+    for (var key in acc) out.push({ idx: +key, w: acc[key] / listArray.length });
+    normalize(out);
+    return out;
+  }
+
+  return {
+    repair: repair,
+    DEFAULTS: DEFAULTS,
+    resolveOptions: resolveOptions,
+    _internal: {
+      buildWeld: buildWeld,
+      buildAdjacency: buildAdjacency,
+      prune: prune,
+      normalize: normalize,
+      mergeLists: mergeLists,
+      nearestBone: nearestBone
+    }
+  };
+});
+  </script>
+  <script>
+/*
  * three-adapter.js — jembatan antara THREE.AnimationClip dan engine MFS.
  *
  * Engine sengaja tidak tahu apa-apa soal three.js (supaya bisa diuji di
@@ -1873,7 +2652,131 @@ input[type="range"] {
     return points;
   }
 
+  /**
+   * Posisi tiap tulang dalam ruang geometri mesh.
+   *
+   * boneInverse memetakan ruang skin ke ruang tulang, jadi inversnya
+   * memberi titik asal tulang di ruang skin. Ruang skin sendiri adalah
+   * posisi geometri setelah bindMatrix, jadi hasilnya dikembalikan lewat
+   * bindMatrixInverse supaya sebanding dengan atribut position mentah.
+   */
+  function boneRestPositions(mesh) {
+    var out = [];
+    var skeleton = mesh.skeleton;
+    if (!skeleton || !skeleton.boneInverses) return out;
+
+    var m = new THREE.Matrix4();
+    var v = new THREE.Vector3();
+    for (var i = 0; i < skeleton.boneInverses.length; i++) {
+      m.copy(skeleton.boneInverses[i]).invert();
+      v.setFromMatrixPosition(m);
+      v.applyMatrix4(mesh.bindMatrixInverse);
+      out.push([v.x, v.y, v.z]);
+    }
+    return out;
+  }
+
+  var ORIGINAL_SKIN = '__mfsOriginalSkin';
+
+  function skinnedMeshes(root) {
+    var list = [];
+    root.traverse(function (child) {
+      if (child.isSkinnedMesh && child.geometry &&
+          child.geometry.attributes.skinIndex && child.skeleton) {
+        list.push(child);
+      }
+    });
+    return list;
+  }
+
+  /**
+   * Perbaiki bobot skin seluruh mesh dalam model.
+   *
+   * Selalu dihitung ulang dari data ASLI, bukan dari hasil perbaikan
+   * sebelumnya — kalau tidak, menggeser slider lalu menjalankan ulang akan
+   * menghaluskan di atas yang sudah halus sampai envelope-nya lumer.
+   */
+  function repairSkinning(root, options) {
+    var meshes = skinnedMeshes(root);
+    var totals = {
+      meshes: 0, vertices: 0, orphansFixed: 0, unnormalizedFixed: 0,
+      negativeOrInvalidFixed: 0, outOfRangeFixed: 0, influencesPruned: 0,
+      weldGroups: 0, verticesChanged: 0,
+      maxWeightErrorBefore: 0, maxWeightErrorAfter: 0
+    };
+    if (!meshes.length) return { meshes: 0, totals: totals };
+
+    // glTF menyimpan 4 pengaruh per set; menyimpang dari itu membuat
+    // berkas hasil tidak bisa dibaca sebagian besar mesin.
+    var opts = {};
+    for (var key in options) if (options.hasOwnProperty(key)) opts[key] = options[key];
+    opts.maxInfluences = 4;
+
+    meshes.forEach(function (mesh) {
+      var geom = mesh.geometry;
+      if (!mesh.userData[ORIGINAL_SKIN]) {
+        mesh.userData[ORIGINAL_SKIN] = {
+          index: geom.attributes.skinIndex.array.slice(),
+          weight: geom.attributes.skinWeight.array.slice(),
+          itemSize: geom.attributes.skinIndex.itemSize
+        };
+      }
+      var original = mesh.userData[ORIGINAL_SKIN];
+
+      var result = SkinFix.repair({
+        position: geom.attributes.position.array,
+        index: geom.index ? geom.index.array : null,
+        skinIndex: original.index,
+        skinWeight: original.weight,
+        vertexCount: geom.attributes.position.count,
+        boneCount: mesh.skeleton.bones.length,
+        bonePositions: boneRestPositions(mesh)
+      }, opts);
+
+      geom.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(result.skinIndex, 4));
+      geom.setAttribute('skinWeight', new THREE.Float32BufferAttribute(result.skinWeight, 4));
+
+      var s = result.stats;
+      totals.meshes++;
+      totals.vertices += s.vertexCount;
+      totals.orphansFixed += s.orphansFixed;
+      totals.unnormalizedFixed += s.unnormalizedFixed;
+      totals.negativeOrInvalidFixed += s.negativeOrInvalidFixed;
+      totals.outOfRangeFixed += s.outOfRangeFixed;
+      totals.influencesPruned += s.influencesPruned;
+      totals.weldGroups += s.weldGroups;
+      totals.verticesChanged += s.verticesChanged;
+      totals.maxWeightErrorBefore = Math.max(totals.maxWeightErrorBefore, s.maxWeightErrorBefore);
+      totals.maxWeightErrorAfter = Math.max(totals.maxWeightErrorAfter, s.maxWeightErrorAfter);
+    });
+
+    return { meshes: totals.meshes, totals: totals };
+  }
+
+  /** Kembalikan bobot skin ke data asli yang disimpan saat perbaikan pertama. */
+  function restoreSkinning(root) {
+    var restored = 0;
+    skinnedMeshes(root).forEach(function (mesh) {
+      var original = mesh.userData[ORIGINAL_SKIN];
+      if (!original) return;
+      mesh.geometry.setAttribute('skinIndex',
+        new THREE.Uint16BufferAttribute(original.index.slice(), original.itemSize));
+      mesh.geometry.setAttribute('skinWeight',
+        new THREE.Float32BufferAttribute(original.weight.slice(), original.itemSize));
+      restored++;
+    });
+    return restored;
+  }
+
+  function hasSkinning(root) {
+    return skinnedMeshes(root).length > 0;
+  }
+
   root.ThreeAdapter = {
+    repairSkinning: repairSkinning,
+    restoreSkinning: restoreSkinning,
+    hasSkinning: hasSkinning,
+    boneRestPositions: boneRestPositions,
     clipToData: clipToData,
     dataToClip: dataToClip,
     enhanceClip: enhanceClip,
@@ -1907,11 +2810,16 @@ input[type="range"] {
     fileName: 'model',
     trailGroup: null,
     ghost: { root: null, mixer: null, action: null, material: null },
+    skinReport: null,
     presetName: 'balanced',
     clipFilter: ''
   };
 
   var $ = function (id) { return document.getElementById(id); };
+  // Sengaja TIDAK dinamai `t`: fungsi di berkas ini banyak memakai `t`
+  // sebagai variabel waktu, dan hoisting `var t` akan menutupi helper ini
+  // untuk seluruh fungsi — persis yang sempat membuat demo gagal dimuat.
+  var tr = function (key, params) { return I18n.t(key, params); };
 
   /* ================================================================== *
    * Scene
@@ -2191,7 +3099,7 @@ input[type="range"] {
     ]);
 
     state.fileName = 'demo_hopper';
-    setModel(group, [clip], 'Demo Hopper (8 fps stepped)');
+    setModel(group, [clip], tr('demo.name'));
   }
 
   /* ================================================================== *
@@ -2233,6 +3141,7 @@ input[type="range"] {
     state.enhancedClips = null;
     state.clipStats = [];
     state.clipIndex = 0;
+    state.skinReport = null;
     state.clipFilter = '';
     $('clip-filter').value = '';
     state.view = 'original';
@@ -2242,8 +3151,10 @@ input[type="range"] {
     renderClipList();
     rebindAction(false);
     refreshButtons();
+    updateSkinControls();
+    renderSkinReport();
     clearStats();
-    toast('Dimuat: ' + label);
+    toast(tr('toast.loaded', { name: label }));
   }
 
   /** Klip hasil enhance untuk indeks tertentu, atau null kalau belum diproses. */
@@ -2318,7 +3229,7 @@ input[type="range"] {
   var FILTER_THRESHOLD = 8; // di bawah ini daftar sudah cukup pendek untuk dipindai mata
 
   function clipLabel(clip, index) {
-    return clip.name || ('Clip ' + (index + 1));
+    return clip.name || tr('clip.unnamed', { n: index + 1 });
   }
 
   /**
@@ -2363,10 +3274,11 @@ input[type="range"] {
       row.setAttribute('aria-selected', i === state.clipIndex ? 'true' : 'false');
 
       var originalKeys = ThreeAdapter.countKeys(clip);
+      var keyWord = tr('clip.key');
       var meta = clip.duration.toFixed(2) + 's · ' +
         (enhanced
-          ? originalKeys.toLocaleString() + ' → ' + ThreeAdapter.countKeys(enhanced).toLocaleString() + ' key'
-          : originalKeys.toLocaleString() + ' key');
+          ? originalKeys.toLocaleString() + ' → ' + ThreeAdapter.countKeys(enhanced).toLocaleString() + ' ' + keyWord
+          : originalKeys.toLocaleString() + ' ' + keyWord);
 
       var body = document.createElement('span');
       body.className = 'clip-body';
@@ -2381,11 +3293,11 @@ input[type="range"] {
 
       var badge = document.createElement('span');
       badge.className = 'clip-badge' + (enhanced ? ' done' : '');
-      badge.title = enhanced ? 'Sudah di-enhance' : 'Belum diproses';
+      badge.title = enhanced ? tr('clip.enhanced') : tr('clip.pending');
 
       row.appendChild(body);
       row.appendChild(badge);
-      row.title = clipLabel(clip, i) + (enhanced ? ' — sudah di-enhance' : ' — belum diproses');
+      row.title = clipLabel(clip, i) + ' — ' + (enhanced ? tr('clip.enhanced') : tr('clip.pending'));
       row.addEventListener('click', function () { selectClip(i); });
       list.appendChild(row);
     });
@@ -2394,8 +3306,8 @@ input[type="range"] {
 
     var enhancedCount = 0;
     for (var k = 0; k < clips.length; k++) if (enhancedFor(k)) enhancedCount++;
-    $('clip-count').textContent = clips.length + ' klip' +
-      (enhancedCount ? ' · ' + enhancedCount + ' diproses' : '');
+    $('clip-count').textContent = tr('clip.count', { n: clips.length }) +
+      (enhancedCount ? ' · ' + tr('clip.done', { n: enhancedCount }) : '');
 
     var activeRow = list.querySelector('.clip-row.active');
     if (activeRow && activeRow.scrollIntoView) activeRow.scrollIntoView({ block: 'nearest' });
@@ -2430,7 +3342,7 @@ input[type="range"] {
     var url = URL.createObjectURL(file);
     var loader = new THREE.GLTFLoader();
 
-    showOverlay('Memuat model 3D…', file.name);
+    showOverlay(tr('overlay.loading'), file.name);
     state.fileName = file.name.replace(/\.[^/.]+$/, '') || 'model';
 
     loader.load(url, function (gltf) {
@@ -2438,7 +3350,7 @@ input[type="range"] {
       hideOverlay();
       if (!gltf.animations || !gltf.animations.length) {
         setModel(gltf.scene, [], file.name);
-        toast('Model dimuat, tapi tidak ada klip animasi di dalamnya.', true);
+        toast(tr('toast.noanim'), true);
         return;
       }
       setModel(gltf.scene, gltf.animations, file.name);
@@ -2450,13 +3362,72 @@ input[type="range"] {
       URL.revokeObjectURL(url);
       hideOverlay();
       console.error(err);
-      toast('Gagal membaca file. Untuk .gltf dengan file terpisah, pakai .glb.', true);
+      toast(tr('toast.loadfail'), true);
     });
   }
 
   /* ================================================================== *
    * Enhance
    * ================================================================== */
+
+  function readSkinOptions() {
+    return {
+      smoothing: parseInt($('opt-envelope').value, 10) / 100,
+      iterations: parseInt($('opt-skin-iter').value, 10),
+      minWeight: 0.01,
+      fixOrphans: true
+    };
+  }
+
+  /**
+   * Perbaikan skinning bekerja pada mesh, bukan pada kurva animasi, jadi
+   * dijalankan sekali untuk seluruh model — bukan per klip.
+   */
+  function applySkinRepair() {
+    if (!state.root || !$('opt-skin').checked) return null;
+    if (!ThreeAdapter.hasSkinning(state.root)) return null;
+    try {
+      var result = ThreeAdapter.repairSkinning(state.root, readSkinOptions());
+      return result.meshes ? result : null;
+    } catch (err) {
+      console.error('Perbaikan skinning gagal:', err);
+      toast(tr('toast.skinfail', { err: err.message }), true);
+      return null;
+    }
+  }
+
+  function revertSkinRepair() {
+    if (state.root) ThreeAdapter.restoreSkinning(state.root);
+    state.skinReport = null;
+    renderSkinReport();
+  }
+
+  function renderSkinReport() {
+    var rows = ['row-skin-verts', 'row-skin-fix', 'row-skin-orphan', 'row-skin-env'];
+    var report = state.skinReport;
+    $('skin-report-divider').style.display = report ? '' : 'none';
+    rows.forEach(function (id) { $(id).style.display = report ? '' : 'none'; });
+    if (!report) return;
+
+    var totals = report.totals;
+    $('st-skin-verts').textContent = totals.vertices.toLocaleString() +
+      (totals.meshes > 1 ? ' ' + tr('stats.mesh', { n: totals.meshes }) : '');
+    $('st-skin-fix').textContent = totals.verticesChanged.toLocaleString();
+    $('st-skin-orphan').textContent = totals.influencesPruned.toLocaleString();
+    $('st-skin-env').textContent = totals.weldGroups
+      ? tr('stats.points', { n: totals.weldGroups.toLocaleString() })
+      : tr('stats.none');
+  }
+
+  function updateSkinControls() {
+    var on = $('opt-skin').checked;
+    $('skin-params').style.display = on ? '' : 'none';
+    $('skin-iter-wrap').style.display = on ? '' : 'none';
+
+    var available = state.root && ThreeAdapter.hasSkinning(state.root);
+    $('opt-skin').disabled = !available;
+    $('skin-status').textContent = available ? '' : tr('skin.noskeleton');
+  }
 
   function readOptions() {
     return {
@@ -2486,7 +3457,15 @@ input[type="range"] {
     }
 
     var results = new Array(targets.length);
-    showOverlay('Mensintesis gerakan…', 'Menyiapkan');
+    showOverlay(tr('overlay.synth'), tr('overlay.prepare'));
+
+    // Dikerjakan sekali di depan: ini operasi mesh, tidak ada hubungannya
+    // dengan jumlah klip.
+    if ($('opt-skin').checked) {
+      $('overlay-sub').textContent = tr('overlay.skin');
+      state.skinReport = applySkinRepair();
+      renderSkinReport();
+    }
 
     // Diproses per klip lewat timeout supaya UI tidak membeku pada model
     // besar, dan progresnya kelihatan.
@@ -2498,14 +3477,14 @@ input[type="range"] {
       }
       var index = targets[i];
       var clip = state.originalClips[index];
-      $('overlay-sub').textContent = 'Klip ' + (i + 1) + '/' + targets.length +
-        ' — ' + clipLabel(clip, index);
+      $('overlay-sub').textContent = tr('overlay.clip',
+        { i: i + 1, n: targets.length, name: clipLabel(clip, index) });
       try {
         results[i] = ThreeAdapter.enhanceClip(clip, options);
       } catch (err) {
         console.error('Gagal memproses klip', clip.name, err);
         hideOverlay();
-        toast('Gagal memproses klip "' + clipLabel(clip, index) + '": ' + err.message, true);
+        toast(tr('toast.clipfail', { name: clipLabel(clip, index), err: err.message }), true);
         return;
       }
       i++;
@@ -2539,8 +3518,7 @@ input[type="range"] {
       renderStats();
       renderClipList();
       hideOverlay();
-      toast(targets.length + ' klip selesai dalam ' + elapsed.toFixed(0) +
-        ' ms — tekan C untuk bandingkan A/B.');
+      toast(tr('toast.done', { n: targets.length, ms: elapsed.toFixed(0) }));
     }
 
     setTimeout(step, 30);
@@ -2548,6 +3526,7 @@ input[type="range"] {
 
   function resetEnhance() {
     clearGhost();
+    revertSkinRepair();
     $('opt-ghost').checked = false;
     state.enhancedClips = null;
     state.clipStats = [];
@@ -2556,7 +3535,7 @@ input[type="range"] {
     refreshButtons();
     renderClipList();
     clearStats();
-    toast('Kembali ke animasi original.');
+    toast(tr('toast.reset'));
   }
 
   /* ================================================================== *
@@ -2584,7 +3563,7 @@ input[type="range"] {
     var stats = state.clipStats[state.clipIndex];
     if (!stats) {
       clearStats();
-      if (hasAnyEnhanced()) $('st-jitter').textContent = 'belum diproses';
+      if (hasAnyEnhanced()) $('st-jitter').textContent = tr('stats.pending');
       return;
     }
 
@@ -2611,7 +3590,8 @@ input[type="range"] {
 
     $('st-fps').textContent = stats.fps.toFixed(0) + ' fps';
     $('st-keys').textContent = stats.inputKeys.toLocaleString() + ' → ' + stats.outputKeys.toLocaleString();
-    $('st-tracks').textContent = stats.tracksProcessed + (stats.tracksCopied ? ' (+' + stats.tracksCopied + ' disalin)' : '');
+    $('st-tracks').textContent = stats.tracksProcessed +
+      (stats.tracksCopied ? ' ' + tr('stats.copied', { n: stats.tracksCopied }) : '');
     $('st-flips').textContent = String(stats.quaternionFlipsFixed);
     $('st-weight').textContent = formatBytes(stats.weight);
     $('st-time').textContent = state.lastElapsed ? state.lastElapsed.toFixed(0) + ' ms' : '—';
@@ -2689,7 +3669,7 @@ input[type="range"] {
     if (!original || !enhancedFor(state.clipIndex)) return;
 
     if (!THREE.SkeletonUtils || typeof THREE.SkeletonUtils.clone !== 'function') {
-      toast('Bayangan butuh SkeletonUtils, yang gagal dimuat dari CDN.', true);
+      toast(tr('toast.ghostfail'), true);
       $('opt-ghost').checked = false;
       return;
     }
@@ -2762,7 +3742,7 @@ input[type="range"] {
     var clips = activeClipList();
     var suffix = (state.view === 'enhanced') ? '_enhanced' : '_original';
 
-    showOverlay('Menyiapkan GLB…', clips.length + ' klip animasi');
+    showOverlay(tr('overlay.glb'), tr('overlay.glbsub', { n: clips.length }));
 
     // Reset ke frame 0 supaya pose yang tersimpan adalah pose bind/awal,
     // bukan pose acak di tengah animasi.
@@ -2779,20 +3759,20 @@ input[type="range"] {
       hideOverlay();
       if (result instanceof ArrayBuffer) {
         download(new Blob([result], { type: 'model/gltf-binary' }), state.fileName + suffix + '.glb');
-        toast('GLB tersimpan (' + clips.length + ' klip).');
+        toast(tr('toast.glbsaved', { n: clips.length }));
       } else {
         // Sebagian build mengabaikan opsi binary; jangan bungkus objek JSON
         // ke dalam Blob biner — itu menghasilkan file rusak.
         download(new Blob([JSON.stringify(result)], { type: 'model/gltf+json' }),
                  state.fileName + suffix + '.gltf');
-        toast('Eksporter mengembalikan glTF JSON, disimpan sebagai .gltf.');
+        toast(tr('toast.gltfsaved'));
       }
     };
 
     var onError = function (err) {
       hideOverlay();
       console.error('GLTFExporter:', err);
-      toast('Gagal mengekspor GLB: ' + (err && err.message ? err.message : err), true);
+      toast(tr('toast.glbfail', { err: (err && err.message ? err.message : err) }), true);
     };
 
     setTimeout(function () {
@@ -2819,7 +3799,7 @@ input[type="range"] {
     var json = THREE.AnimationClip.toJSON(clip);
     download(new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' }),
              state.fileName + '_' + (clip.name || 'clip') + suffix + '.json');
-    toast('Klip "' + (clip.name || 'clip') + '" tersimpan sebagai JSON.');
+    toast(tr('toast.jsonsaved', { name: clip.name || 'clip' }));
   }
 
   /* ================================================================== *
@@ -2857,9 +3837,7 @@ input[type="range"] {
     var canGhost = !!enhancedFor(state.clipIndex);
     var ghostBox = $('opt-ghost');
     ghostBox.disabled = !canGhost;
-    $('row-ghost').title = canGhost
-      ? 'Tumpuk animasi original sebagai siluet tembus pandang'
-      : 'Jalankan enhance pada klip ini dulu';
+    $('row-ghost').title = canGhost ? tr('ghost.ready') : tr('ghost.locked');
     if (!canGhost && ghostBox.checked) {
       ghostBox.checked = false;
       clearGhost();
@@ -2869,15 +3847,14 @@ input[type="range"] {
     $('btn-view-enhanced').classList.toggle('active', state.view === 'enhanced');
 
     if (state.view !== 'enhanced') {
-      $('export-note').textContent = 'Export memakai klip ORIGINAL. Jalankan enhance dulu untuk hasil halus.';
+      $('export-note').textContent = tr('export.original');
     } else {
       var total = state.originalClips.length;
       var done = 0;
       for (var i = 0; i < total; i++) if (enhancedFor(i)) done++;
       $('export-note').textContent = done === total
-        ? 'Export memakai klip HASIL ENHANCE (semua ' + total + ' klip ikut).'
-        : 'Export ikut semua ' + total + ' klip; ' + (total - done) +
-          ' di antaranya masih versi original karena belum diproses.';
+        ? tr('export.all', { n: total })
+        : tr('export.partial', { n: total, k: total - done });
     }
   }
 
@@ -2893,7 +3870,7 @@ input[type="range"] {
   function setPlaying(playing) {
     state.playing = playing;
     $('btn-play').innerHTML = playing ? '&#10073;&#10073;' : '&#9654;';
-    $('btn-play').title = playing ? 'Pause (Space)' : 'Play (Space)';
+    $('btn-play').title = playing ? tr('tr.pause') : tr('tr.play');
   }
 
   function setView(view) {
@@ -2913,7 +3890,7 @@ input[type="range"] {
       var btn = document.createElement('button');
       btn.className = 'preset';
       btn.dataset.preset = key;
-      btn.innerHTML = '<span class="p-name">' + p.label + '</span>' +
+      btn.innerHTML = '<span class="p-name" data-i18n="preset.' + key + '">' + p.label + '</span>' +
                       '<span class="p-meta">' + p.fps + ' fps</span>';
       btn.addEventListener('click', function () { applyPreset(key); });
       grid.appendChild(btn);
@@ -2938,6 +3915,23 @@ input[type="range"] {
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].classList.toggle('active', buttons[i].dataset.preset === state.presetName);
     }
+  }
+
+  /**
+   * Ganti bahasa. Selain teks statis yang ditangani I18n.apply, bagian
+   * yang dibangun JavaScript harus digambar ulang — daftar klip, laporan
+   * statistik, catatan export, dan judul tombol tidak akan ikut berubah
+   * sendiri.
+   */
+  function applyLanguage(lang) {
+    I18n.setLang(lang);
+    renderClipList();
+    renderStats();
+    renderSkinReport();
+    refreshButtons();
+    updateSkinControls();
+    updateLegend();
+    setPlaying(state.playing);
   }
 
   function syncSliderLabels() {
@@ -2971,6 +3965,7 @@ input[type="range"] {
     window.addEventListener('drop', function (e) { e.preventDefault(); });
 
     $('btn-demo').addEventListener('click', buildDemo);
+    $('btn-lang').addEventListener('click', function () { applyLanguage(I18n.other()); });
 
     $('clip-filter').addEventListener('input', function (e) {
       state.clipFilter = e.target.value;
@@ -2988,6 +3983,13 @@ input[type="range"] {
 
     $('opt-trail').addEventListener('change', rebuildTrails);
     $('opt-ghost').addEventListener('change', buildGhost);
+    $('opt-skin').addEventListener('change', updateSkinControls);
+    $('opt-envelope').addEventListener('input', function (e) {
+      $('val-envelope').textContent = e.target.value + '%';
+    });
+    $('opt-skin-iter').addEventListener('input', function (e) {
+      $('val-skin-iter').textContent = e.target.value;
+    });
 
     $('btn-run').addEventListener('click', runEnhance);
     $('btn-reset').addEventListener('click', resetEnhance);
@@ -3062,14 +4064,17 @@ input[type="range"] {
   window.addEventListener('load', function () {
     if (typeof THREE === 'undefined') {
       document.body.innerHTML =
-        '<div style="padding:2rem;font-family:sans-serif;color:#f1f5f9;background:#0b1120;height:100vh">' +
-        '<h2>three.js gagal dimuat</h2><p>Halaman ini mengambil three.js dari CDN. ' +
-        'Periksa koneksi internet lalu muat ulang.</p></div>';
+        '<div style="padding:2rem;font-family:sans-serif;color:#f1f5f9;background:#0b1120;height:100dvh">' +
+        '<h2>' + tr('err.three') + '</h2><p>' + tr('err.threebody') + '</p></div>';
       return;
     }
     buildPresetButtons();
     applyPreset('balanced');
     bindEvents();
+    // Bahasa disetel sebelum apa pun digambar, supaya tidak ada teks yang
+    // sempat muncul dalam bahasa yang salah lalu berkedip berubah.
+    I18n.setLang(I18n.detect());
+    updateSkinControls();
     initScene();
     setPlaying(true);
     buildDemo();
