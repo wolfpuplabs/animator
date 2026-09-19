@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 3D Animation Enhancer & Editor</title>
+  <title>AI 3D Animation Enhancer & Studio Exporter</title>
   <style>
     :root {
       --bg-dark: #0f172a;
@@ -50,7 +50,7 @@
     .main-container { display: flex; flex: 1; height: calc(100vh - 60px); position: relative; }
 
     .sidebar {
-      width: 320px;
+      width: 330px;
       background: var(--card-bg);
       border-right: 1px solid var(--border);
       padding: 1.25rem;
@@ -111,10 +111,16 @@
       border: none;
       font-weight: 600;
       color: #fff;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     }
 
-    .btn-primary:hover, .btn-success:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-purple {
+      background: linear-gradient(135deg, var(--accent-purple), #6d28d9);
+      border: none;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .btn-primary:hover, .btn-success:hover, .btn-purple:hover { opacity: 0.9; transform: translateY(-1px); }
 
     .viewport-container { flex: 1; display: flex; flex-direction: column; position: relative; }
     .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
@@ -240,7 +246,8 @@
 
       <div class="panel-group">
         <div class="panel-title">3. Export Result</div>
-        <button class="btn-success" id="btn-export">💾 Export Enhanced to .GLB</button>
+        <button class="btn-success" id="btn-export">💾 Export Full .GLB</button>
+        <button class="btn-purple" id="btn-export-json" style="margin-top: 4px;">📄 Export Animasi Only (.JSON)</button>
       </div>
 
       <div class="panel-group" style="margin-top: auto;">
@@ -280,8 +287,8 @@
 
   <script>
     let scene, camera, renderer, controls, mixer, clock;
+    let rawGltfData = null; 
     let currentGltfScene = null;
-    let rawLoadedModel = null;
     let activeClip = null;
     let activeAction = null;
     let isPlaying = true;
@@ -342,21 +349,17 @@
       activeAction.play();
     }
 
-    function centerAndFitModel(model) {
+    function fitCameraToScene(model) {
       const box = new THREE.Box3().setFromObject(model);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
 
-      model.position.x -= center.x;
-      model.position.y -= box.min.y;
-      model.position.z -= center.z;
-
       const maxDim = Math.max(size.x, size.y, size.z);
       const fov = camera.fov * (Math.PI / 180);
-      let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 2.2;
+      let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 2.5;
 
-      camera.position.set(0, size.y / 2, cameraZ);
-      controls.target.set(0, size.y / 2, 0);
+      camera.position.set(center.x, center.y + (size.y * 0.2), center.z + cameraZ);
+      controls.target.copy(center);
       controls.update();
     }
 
@@ -403,38 +406,36 @@
       return new THREE.AnimationClip(clip.name || 'enhanced_clip', clip.duration, newTracks);
     }
 
-    // --- FIX COMPLETE: GLB EXPORTER WITH MESH RECOVERY ---
+    // --- FIX GLB EXPORT (TETAP MENJAGA HIERARKI BONES) ---
     function exportToGLB() {
       if (!currentGltfScene) {
-        alert('Tidak ada model 3D yang aktif untuk dieksport.');
+        alert('Tidak ada model 3D aktif.');
         return;
       }
 
       const loadingOverlay = document.getElementById('loading');
       const loadingText = document.getElementById('loading-text');
 
-      loadingText.innerText = 'Updating World Matrix & Packing Mesh 3D...';
+      loadingText.innerText = 'Restoring Bones & Exporting GLB...';
       loadingOverlay.classList.add('active');
 
-      // Update seluruh hierarki matriks sebelum dipack ke GLB
-      currentGltfScene.updateMatrixWorld(true, true);
+      // Pastikan Mixer Direset ke Frame 0 sebelum dipack agar tidak terdistorsi
+      if (mixer) mixer.setTime(0);
 
-      // Pastikan semua SkinnedMesh / Geometry terlihat dan valid
+      // Paksa update seluruh matriks Skeleton & SkinnedMesh
       currentGltfScene.traverse((child) => {
-        if (child.isMesh) {
-          child.frustumCulled = false;
-          if (child.material) {
-            child.material.side = THREE.DoubleSide; // Mencegah culling jika normal terbalik
-          }
+        if (child.isSkinnedMesh) {
+          child.skeleton.update();
         }
+        child.updateMatrix();
+        child.updateMatrixWorld(true, true);
       });
 
       const exporter = new THREE.GLTFExporter();
       const options = {
         binary: true,
         animations: activeClip ? [activeClip] : [],
-        includeCustomExtensions: true,
-        embedImages: true
+        includeCustomExtensions: true
       };
 
       setTimeout(() => {
@@ -458,16 +459,31 @@
             function (error) {
               console.error('GLTFExporter Error:', error);
               loadingOverlay.classList.remove('active');
-              alert('Gagal mengemas GLB.');
+              alert('Gagal mengeksport file GLB.');
             },
             options
           );
         } catch (err) {
-          console.error('Export exception:', err);
+          console.error(err);
           loadingOverlay.classList.remove('active');
-          alert('Terjadi kesalahan teknis saat mengeksport file 3D.');
         }
       }, 300);
+    }
+
+    // --- EXPORT ANIMATION-ONLY JSON ---
+    function exportAnimationJSON() {
+      if (!activeClip) {
+        alert('Tidak ada clip animasi yang siap dieksport.');
+        return;
+      }
+
+      const animJSON = THREE.AnimationClip.toJSON(activeClip);
+      const blob = new Blob([JSON.stringify(animJSON, null, 2)], { type: 'application/json' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${originalFileName}_animation_enhanced.json`;
+      link.click();
     }
 
     function load3DFile(file) {
@@ -479,12 +495,14 @@
       document.getElementById('loading').classList.add('active');
 
       loader.load(url, (gltf) => {
+        rawGltfData = gltf;
         if (currentGltfScene) scene.remove(currentGltfScene);
 
         currentGltfScene = gltf.scene;
         scene.add(currentGltfScene);
 
-        centerAndFitModel(currentGltfScene);
+        // Jangan ubah position model internal secara paksa, posisikan Kamera saja
+        fitCameraToScene(currentGltfScene);
         updateBadgeStatus(false);
 
         if (gltf.animations && gltf.animations.length > 0) {
@@ -548,6 +566,7 @@
     });
 
     document.getElementById('btn-export').addEventListener('click', exportToGLB);
+    document.getElementById('btn-export-json').addEventListener('click', exportAnimationJSON);
 
     document.getElementById('slider-smooth').addEventListener('input', (e) => {
       document.getElementById('val-smooth').innerText = `${e.target.value}%`;
