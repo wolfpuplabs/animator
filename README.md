@@ -30,6 +30,7 @@ Animasi terasa patah biasanya karena beberapa hal, dan semuanya ditangani:
 | Gerakan terasa kaku, seperti robot | Tidak ada follow-through / cushion | Dinamika orde dua |
 | Rotasi tiba-tiba melintir sejauh 360° | Quaternion beda hemisphere antar-key | Penyelarasan hemisphere |
 | Kaki meluncur, pose hold melayang | Smoothing diterapkan rata ke seluruh kurva | Motion mask + contact lock |
+| Model berisi puluhan animasi, susah dipilah | — | Panel daftar animasi dengan pencarian |
 
 ---
 
@@ -73,6 +74,22 @@ frame. Overshoot murni muncul saat gerakan berbelok.
 **5. Compact.** Hasil 120 fps itu indah tapi boros. Key yang bisa
 direkonstruksi ulang lewat interpolasi linear dalam batas error tertentu
 dibuang.
+
+### Daftar animasi
+
+Model dari Mixamo dan sejenisnya sering membawa puluhan klip dalam satu
+berkas. Panel **Animasi** menampilkan semuanya sekaligus, lengkap dengan
+durasi, jumlah keyframe, dan tanda apakah klip itu sudah diproses — jadi
+tidak perlu klik satu per satu untuk tahu keadaannya. Daftar di atas 8 klip
+otomatis dapat kotak pencarian. Pindah klip juga bisa lewat tombol `[` dan
+`]`.
+
+Centang **Proses semua klip sekaligus** menentukan cakupan: matikan kalau
+hanya ingin menyetel satu klip tanpa menunggu puluhan lainnya. Hasil klip
+yang sudah diproses sebelumnya tetap disimpan, jadi bisa dikerjakan
+bertahap dengan setelan berbeda per klip. Export selalu menyertakan
+**semua** klip — yang belum diproses ikut sebagai versi original, supaya
+tidak ada animasi yang hilang diam-diam.
 
 ### Motion mask
 
@@ -177,6 +194,11 @@ jaringan. Kalau sudah punya Chromium sendiri, set `CHROMIUM_PATH`.
 jadi GLB, memuatnya lewat file input aplikasi, meng-enhance, mengekspor
 ulang, lalu memuat hasilnya kembali — memastikan skin dan hierarki bone
 selamat melewati seluruh perjalanan.
+
+`tests/browser/multiclip.test.js` memakai model berisi banyak animasi dan
+memeriksa hal-hal yang gampang rusak diam-diam: statistik per-klip tidak
+tertukar, memproses satu klip tidak membatalkan hasil klip lain, dan
+export tidak kehilangan animasi yang belum diproses.
 
 `tests/browser/standalone.test.js` menjalankan `standalone.html` sendiri,
 bukan cuma memeriksa isinya — berkas itulah yang paling mungkin dipakai

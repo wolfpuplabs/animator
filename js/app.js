@@ -20,7 +20,8 @@
     scrubbing: false,
     fileName: 'model',
     trailGroup: null,
-    presetName: 'balanced'
+    presetName: 'balanced',
+    clipFilter: ''
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -273,24 +274,50 @@
     state.enhancedClips = null;
     state.clipStats = [];
     state.clipIndex = 0;
+    state.clipFilter = '';
+    $('clip-filter').value = '';
     state.view = 'original';
     state.mixer = new THREE.AnimationMixer(root);
 
     frameCamera(root, state.originalClips[0]);
-    buildClipSelector();
+    renderClipList();
     rebindAction(false);
     refreshButtons();
     clearStats();
     toast('Dimuat: ' + label);
   }
 
+  /** Klip hasil enhance untuk indeks tertentu, atau null kalau belum diproses. */
+  function enhancedFor(index) {
+    return state.enhancedClips ? (state.enhancedClips[index] || null) : null;
+  }
+
+  function hasAnyEnhanced() {
+    if (!state.enhancedClips) return false;
+    for (var i = 0; i < state.enhancedClips.length; i++) {
+      if (state.enhancedClips[i]) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Daftar klip untuk ditampilkan/diekspor. Dalam mode Enhanced, klip yang
+   * belum diproses ikut apa adanya — supaya export tidak diam-diam
+   * kehilangan animasi hanya karena pengguna memproses satu klip saja.
+   */
   function activeClipList() {
-    return (state.view === 'enhanced' && state.enhancedClips) ? state.enhancedClips : state.originalClips;
+    if (state.view !== 'enhanced' || !state.enhancedClips) return state.originalClips;
+    return state.originalClips.map(function (clip, i) {
+      return state.enhancedClips[i] || clip;
+    });
   }
 
   function activeClip() {
-    var list = activeClipList();
-    return list[state.clipIndex] || null;
+    if (state.view === 'enhanced') {
+      var enhanced = enhancedFor(state.clipIndex);
+      if (enhanced) return enhanced;
+    }
+    return state.originalClips[state.clipIndex] || null;
   }
 
   /**
@@ -328,20 +355,111 @@
     rebuildTrails();
   }
 
-  function buildClipSelector() {
-    var sel = $('clip-select');
-    sel.innerHTML = '';
-    if (state.originalClips.length <= 1) {
-      sel.style.display = 'none';
+  var FILTER_THRESHOLD = 8; // di bawah ini daftar sudah cukup pendek untuk dipindai mata
+
+  function clipLabel(clip, index) {
+    return clip.name || ('Clip ' + (index + 1));
+  }
+
+  /**
+   * Daftar animasi. Model dari Mixamo dan sejenisnya sering membawa puluhan
+   * klip, jadi yang penting bukan cuma bisa memilih: tiap baris harus
+   * langsung memberi tahu durasi, jumlah keyframe, dan apakah klip itu
+   * sudah diproses — supaya tidak perlu klik satu per satu untuk tahu.
+   */
+  function renderClipList() {
+    var section = $('clip-section');
+    var list = $('clip-list');
+    var clips = state.originalClips;
+
+    if (!clips.length) {
+      section.style.display = 'none';
+      list.innerHTML = '';
       return;
     }
-    state.originalClips.forEach(function (clip, i) {
-      var opt = document.createElement('option');
-      opt.value = String(i);
-      opt.textContent = (clip.name || ('Clip ' + (i + 1))) + '  (' + clip.duration.toFixed(2) + 's)';
-      sel.appendChild(opt);
+    section.style.display = '';
+
+    var filterBox = $('clip-filter');
+    var showFilter = clips.length > FILTER_THRESHOLD;
+    filterBox.style.display = showFilter ? '' : 'none';
+    if (!showFilter && state.clipFilter) {
+      state.clipFilter = '';
+      filterBox.value = '';
+    }
+
+    var needle = state.clipFilter.trim().toLowerCase();
+    var shown = 0;
+    list.innerHTML = '';
+
+    clips.forEach(function (clip, i) {
+      if (needle && clipLabel(clip, i).toLowerCase().indexOf(needle) === -1) return;
+      shown++;
+
+      var enhanced = enhancedFor(i);
+      var row = document.createElement('button');
+      row.className = 'clip-row' + (i === state.clipIndex ? ' active' : '');
+      row.dataset.index = String(i);
+      row.setAttribute('role', 'option');
+      row.setAttribute('aria-selected', i === state.clipIndex ? 'true' : 'false');
+
+      var originalKeys = ThreeAdapter.countKeys(clip);
+      var meta = clip.duration.toFixed(2) + 's · ' +
+        (enhanced
+          ? originalKeys.toLocaleString() + ' → ' + ThreeAdapter.countKeys(enhanced).toLocaleString() + ' key'
+          : originalKeys.toLocaleString() + ' key');
+
+      var body = document.createElement('span');
+      body.className = 'clip-body';
+      var name = document.createElement('span');
+      name.className = 'clip-name';
+      name.textContent = clipLabel(clip, i);
+      var metaEl = document.createElement('span');
+      metaEl.className = 'clip-meta';
+      metaEl.textContent = meta;
+      body.appendChild(name);
+      body.appendChild(metaEl);
+
+      var badge = document.createElement('span');
+      badge.className = 'clip-badge' + (enhanced ? ' done' : '');
+      badge.title = enhanced ? 'Sudah di-enhance' : 'Belum diproses';
+
+      row.appendChild(body);
+      row.appendChild(badge);
+      row.title = clipLabel(clip, i) + (enhanced ? ' — sudah di-enhance' : ' — belum diproses');
+      row.addEventListener('click', function () { selectClip(i); });
+      list.appendChild(row);
     });
-    sel.style.display = '';
+
+    $('clip-empty').style.display = shown === 0 ? '' : 'none';
+
+    var enhancedCount = 0;
+    for (var k = 0; k < clips.length; k++) if (enhancedFor(k)) enhancedCount++;
+    $('clip-count').textContent = clips.length + ' klip' +
+      (enhancedCount ? ' · ' + enhancedCount + ' diproses' : '');
+
+    var activeRow = list.querySelector('.clip-row.active');
+    if (activeRow && activeRow.scrollIntoView) activeRow.scrollIntoView({ block: 'nearest' });
+  }
+
+  function selectClip(index) {
+    if (index < 0 || index >= state.originalClips.length || index === state.clipIndex) return;
+    state.clipIndex = index;
+    rebindAction(false);
+    refreshButtons();
+    renderStats();
+    renderClipList();
+  }
+
+  /** Pindah klip relatif, mengikuti urutan yang sedang terlihat di daftar. */
+  function stepClip(delta) {
+    var rows = $('clip-list').querySelectorAll('.clip-row');
+    if (rows.length < 2) return;
+    var at = -1;
+    for (var i = 0; i < rows.length; i++) {
+      if (parseInt(rows[i].dataset.index, 10) === state.clipIndex) { at = i; break; }
+    }
+    var next = at === -1 ? 0 : (at + delta + rows.length) % rows.length;
+    selectClip(parseInt(rows[next].dataset.index, 10));
   }
 
   /* ================================================================== *
@@ -396,28 +514,38 @@
     if (!state.originalClips.length) return;
 
     var options = readOptions();
-    var results = [];
     var startedAt = performance.now();
 
+    // Model dengan puluhan animasi bisa makan waktu lama kalau semuanya
+    // diproses. Kalau pengguna cuma menyetel satu klip, hormati itu.
+    var targets = [];
+    if ($('opt-all-clips').checked) {
+      for (var t = 0; t < state.originalClips.length; t++) targets.push(t);
+    } else {
+      targets.push(state.clipIndex);
+    }
+
+    var results = new Array(targets.length);
     showOverlay('Mensintesis gerakan…', 'Menyiapkan');
 
-    // Diproses per klip lewat timeout supaya UI tidak membeku pada
-    // model besar, dan progresnya kelihatan.
+    // Diproses per klip lewat timeout supaya UI tidak membeku pada model
+    // besar, dan progresnya kelihatan.
     var i = 0;
     function step() {
-      if (i >= state.originalClips.length) {
+      if (i >= targets.length) {
         finish();
         return;
       }
-      var clip = state.originalClips[i];
-      $('overlay-sub').textContent = 'Klip ' + (i + 1) + '/' + state.originalClips.length +
-        ' — ' + (clip.name || 'tanpa nama');
+      var index = targets[i];
+      var clip = state.originalClips[index];
+      $('overlay-sub').textContent = 'Klip ' + (i + 1) + '/' + targets.length +
+        ' — ' + clipLabel(clip, index);
       try {
-        results.push(ThreeAdapter.enhanceClip(clip, options));
+        results[i] = ThreeAdapter.enhanceClip(clip, options);
       } catch (err) {
         console.error('Gagal memproses klip', clip.name, err);
         hideOverlay();
-        toast('Gagal memproses klip "' + (clip.name || i) + '": ' + err.message, true);
+        toast('Gagal memproses klip "' + clipLabel(clip, index) + '": ' + err.message, true);
         return;
       }
       i++;
@@ -426,17 +554,33 @@
 
     function finish() {
       var elapsed = performance.now() - startedAt;
+      var n = state.originalClips.length;
 
-      state.enhancedClips = results.map(function (r) { return r.clip; });
-      state.clipStats = results.map(function (r) { return r.stats; });
+      // Hasil lama untuk klip lain dipertahankan, jadi memproses satu klip
+      // tidak membatalkan pekerjaan sebelumnya.
+      var clips = new Array(n);
+      var stats = new Array(n);
+      for (var k = 0; k < n; k++) {
+        clips[k] = state.enhancedClips ? (state.enhancedClips[k] || null) : null;
+        stats[k] = state.clipStats ? (state.clipStats[k] || null) : null;
+      }
+      targets.forEach(function (index, slot) {
+        clips[index] = results[slot].clip;
+        stats[index] = results[slot].stats;
+      });
+
+      state.enhancedClips = clips;
+      state.clipStats = stats;
       state.lastElapsed = elapsed;
       state.view = 'enhanced';
 
       rebindAction(true);
       refreshButtons();
       renderStats();
+      renderClipList();
       hideOverlay();
-      toast('Selesai dalam ' + elapsed.toFixed(0) + ' ms — tekan C untuk bandingkan A/B.');
+      toast(targets.length + ' klip selesai dalam ' + elapsed.toFixed(0) +
+        ' ms — tekan C untuk bandingkan A/B.');
     }
 
     setTimeout(step, 30);
@@ -448,6 +592,7 @@
     state.view = 'original';
     rebindAction(true);
     refreshButtons();
+    renderClipList();
     clearStats();
     toast('Kembali ke animasi original.');
   }
@@ -475,7 +620,11 @@
 
   function renderStats() {
     var stats = state.clipStats[state.clipIndex];
-    if (!stats) { clearStats(); return; }
+    if (!stats) {
+      clearStats();
+      if (hasAnyEnhanced()) $('st-jitter').textContent = 'belum diproses';
+      return;
+    }
 
     // Angka utama sengaja diukur setelah keyframe reduction dan setelah
     // follow-through, jadi ini benar-benar yang akan terlihat saat diputar.
@@ -528,7 +677,7 @@
   function rebuildTrails() {
     clearTrails();
     var enabled = $('opt-trail').checked;
-    $('legend').classList.toggle('visible', enabled && !!state.enhancedClips);
+    $('legend').classList.toggle('visible', enabled && !!enhancedFor(state.clipIndex));
     if (!enabled || !state.root) return;
 
     var original = state.originalClips[state.clipIndex];
@@ -538,8 +687,8 @@
       var pts = ThreeAdapter.sampleMotionPath(state.root, original, null, 240);
       if (pts && pts.length > 1) state.trailGroup.add(makeTrail(pts, 0xfb7185, 0.85));
 
-      if (state.enhancedClips && state.enhancedClips[state.clipIndex]) {
-        var pts2 = ThreeAdapter.sampleMotionPath(state.root, state.enhancedClips[state.clipIndex], null, 240);
+      if (enhancedFor(state.clipIndex)) {
+        var pts2 = ThreeAdapter.sampleMotionPath(state.root, enhancedFor(state.clipIndex), null, 240);
         if (pts2 && pts2.length > 1) state.trailGroup.add(makeTrail(pts2, 0x22d3ee, 0.95));
       }
     } catch (err) {
@@ -655,7 +804,7 @@
 
   function refreshButtons() {
     var hasClips = state.originalClips.length > 0;
-    var hasEnhanced = !!state.enhancedClips;
+    var hasEnhanced = hasAnyEnhanced();
 
     $('btn-run').disabled = !hasClips;
     $('btn-reset').disabled = !hasEnhanced;
@@ -666,9 +815,17 @@
     $('btn-view-original').classList.toggle('active', state.view === 'original');
     $('btn-view-enhanced').classList.toggle('active', state.view === 'enhanced');
 
-    $('export-note').textContent = state.view === 'enhanced'
-      ? 'Export memakai klip HASIL ENHANCE (semua klip ikut).'
-      : 'Export memakai klip ORIGINAL. Jalankan enhance dulu untuk hasil halus.';
+    if (state.view !== 'enhanced') {
+      $('export-note').textContent = 'Export memakai klip ORIGINAL. Jalankan enhance dulu untuk hasil halus.';
+    } else {
+      var total = state.originalClips.length;
+      var done = 0;
+      for (var i = 0; i < total; i++) if (enhancedFor(i)) done++;
+      $('export-note').textContent = done === total
+        ? 'Export memakai klip HASIL ENHANCE (semua ' + total + ' klip ikut).'
+        : 'Export ikut semua ' + total + ' klip; ' + (total - done) +
+          ' di antaranya masih versi original karena belum diproses.';
+    }
   }
 
   function syncTransport() {
@@ -761,11 +918,9 @@
 
     $('btn-demo').addEventListener('click', buildDemo);
 
-    $('clip-select').addEventListener('change', function (e) {
-      state.clipIndex = parseInt(e.target.value, 10) || 0;
-      rebindAction(false);
-      refreshButtons();
-      renderStats();
+    $('clip-filter').addEventListener('input', function (e) {
+      state.clipFilter = e.target.value;
+      renderClipList();
     });
 
     // --- parameter
@@ -821,6 +976,10 @@
         setPlaying(!state.playing);
       } else if (e.key === 'c' || e.key === 'C') {
         setView(state.view === 'enhanced' ? 'original' : 'enhanced');
+      } else if (e.key === '[') {
+        stepClip(-1);
+      } else if (e.key === ']') {
+        stepClip(1);
       }
     });
   }
