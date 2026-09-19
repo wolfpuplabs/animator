@@ -11,17 +11,13 @@
       --accent-blue: #3b82f6;
       --accent-cyan: #06b6d4;
       --accent-green: #10b981;
+      --accent-purple: #8b5cf6;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --border: #334155;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Roboto, sans-serif;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
 
     body {
       background-color: var(--bg-dark);
@@ -44,9 +40,6 @@
     }
 
     .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
       font-size: 1.2rem;
       font-weight: 700;
       background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
@@ -54,14 +47,8 @@
       -webkit-text-fill-color: transparent;
     }
 
-    .main-container {
-      display: flex;
-      flex: 1;
-      height: calc(100vh - 60px);
-      position: relative;
-    }
+    .main-container { display: flex; flex: 1; height: calc(100vh - 60px); position: relative; }
 
-    /* Sidebar Control Panel */
     .sidebar {
       width: 320px;
       background: var(--card-bg);
@@ -74,12 +61,7 @@
       z-index: 10;
     }
 
-    .panel-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
+    .panel-group { display: flex; flex-direction: column; gap: 0.6rem; }
     .panel-title {
       font-size: 0.8rem;
       text-transform: uppercase;
@@ -94,41 +76,17 @@
       padding: 1.2rem 1rem;
       text-align: center;
       cursor: pointer;
-      transition: all 0.2s ease;
       background: rgba(15, 23, 42, 0.5);
     }
 
-    .upload-zone:hover, .upload-zone.dragover {
-      border-color: var(--accent-blue);
-      background: rgba(59, 130, 246, 0.1);
-    }
-
+    .upload-zone:hover { border-color: var(--accent-blue); background: rgba(59, 130, 246, 0.1); }
     .upload-zone input { display: none; }
 
-    .control-item {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
+    .control-item { display: flex; flex-direction: column; gap: 0.3rem; }
+    .control-header { display: flex; justify-content: space-between; font-size: 0.85rem; }
+    .control-value { color: var(--accent-cyan); font-weight: 600; }
 
-    .control-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.85rem;
-    }
-
-    .control-value {
-      color: var(--accent-cyan);
-      font-weight: 600;
-    }
-
-    input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent-blue);
-      background: #0f172a;
-      height: 6px;
-      border-radius: 3px;
-    }
+    input[type="range"] { width: 100%; accent-color: var(--accent-blue); background: #0f172a; height: 6px; border-radius: 3px; }
 
     select, button {
       background: #0f172a;
@@ -138,12 +96,6 @@
       border-radius: 6px;
       cursor: pointer;
       font-size: 0.85rem;
-      transition: all 0.2s ease;
-    }
-
-    select:focus, button:focus {
-      outline: none;
-      border-color: var(--accent-blue);
     }
 
     .btn-primary {
@@ -159,34 +111,57 @@
       border: none;
       font-weight: 600;
       color: #fff;
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     }
 
-    .btn-primary:hover, .btn-success:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
-    }
+    .viewport-container { flex: 1; display: flex; flex-direction: column; position: relative; }
+    .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
+    #canvas-container { width: 100%; height: 100%; }
 
-    /* Viewport Display */
-    .viewport-container {
-      flex: 1;
+    /* Indikator Enhanced Dynamic Badge */
+    .badge-status {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      backdrop-filter: blur(8px);
       display: flex;
-      flex-direction: column;
-      position: relative;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
     }
 
-    .viewport {
-      flex: 1;
-      position: relative;
-      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+    .badge-status.enhanced {
+      background: rgba(139, 92, 246, 0.2);
+      border: 1px solid var(--accent-purple);
+      color: #c084fc;
+      box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
     }
 
-    #canvas-container {
-      width: 100%;
-      height: 100%;
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
     }
 
-    /* Preview Timeline Controls Footer */
+    .badge-status.enhanced .dot {
+      background: var(--accent-purple);
+      box-shadow: 0 0 8px var(--accent-purple);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
     .editor-controls {
       background: var(--card-bg);
       border-top: 1px solid var(--border);
@@ -196,43 +171,8 @@
       gap: 0.5rem;
     }
 
-    .timeline-bar {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .timeline-slider {
-      flex: 1;
-    }
-
-    .player-buttons {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .btn-icon {
-      padding: 0.4rem 0.8rem;
-      font-size: 0.9rem;
-    }
-
-    .badge-status {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid var(--accent-cyan);
-      color: var(--accent-cyan);
-      padding: 0.4rem 0.8rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      backdrop-filter: blur(5px);
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
+    .timeline-bar { display: flex; align-items: center; gap: 1rem; }
+    .timeline-slider { flex: 1; }
 
     .loading-overlay {
       position: absolute;
@@ -247,27 +187,20 @@
       z-index: 30;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.3s;
     }
 
-    .loading-overlay.active {
-      opacity: 1;
-      pointer-events: all;
-    }
-
+    .loading-overlay.active { opacity: 1; pointer-events: all; }
     .spinner {
-      width: 44px;
-      height: 44px;
+      width: 44px; height: 44px;
       border: 4px solid var(--border);
       border-top-color: var(--accent-cyan);
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
-  <!-- Load Three.js + Loaders & GLTFExporter dari CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -276,30 +209,22 @@
 <body>
 
   <header>
-    <div class="logo">
-      <span>✨ AI Motion Fluidizer & GLB Exporter</span>
-    </div>
-    <div style="font-size: 0.85rem; color: var(--text-muted);">
-      Client-Side WebGL 3D Studio
-    </div>
+    <div class="logo">✨ AI Motion Fluidizer & GLB Exporter</div>
   </header>
 
   <div class="main-container">
-    <!-- Sidebar Controls -->
     <div class="sidebar">
       <div class="panel-group">
         <div class="panel-title">1. Import Model 3D</div>
         <div class="upload-zone" id="dropzone">
-          <div style="font-size: 1.5rem; margin-bottom: 0.2rem;">📦</div>
+          <div style="font-size: 1.5rem;">📦</div>
           <div style="font-size: 0.85rem; font-weight: 600;">Drop file .GLTF / .GLB</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">atau klik untuk memilih file</div>
           <input type="file" id="file-input" accept=".gltf,.glb">
         </div>
       </div>
 
       <div class="panel-group">
         <div class="panel-title">2. Parameter AI Motion</div>
-        
         <div class="control-item">
           <div class="control-header">
             <span>Smoothing Level</span>
@@ -309,13 +234,10 @@
         </div>
 
         <div class="control-item">
-          <div class="control-header">
-            <span>Easing Style</span>
-          </div>
+          <div class="control-header"><span>Easing Style</span></div>
           <select id="select-easing">
             <option value="cubic">AI Fluid Cubic (Ultra Smooth)</option>
             <option value="elastic">Organic Bounce / Spring</option>
-            <option value="linear">Standard Linear</option>
           </select>
         </div>
       </div>
@@ -340,11 +262,11 @@
       </div>
     </div>
 
-    <!-- 3D Viewport & Editor Area -->
     <div class="viewport-container">
       <div class="viewport">
+        <!-- Dynamic Status Indicator -->
         <div class="badge-status" id="badge-status">
-          <span style="color: var(--accent-green);">●</span> Preview Mode
+          <div class="dot"></div> <span id="badge-text">Original Motion</span>
         </div>
         
         <div id="canvas-container"></div>
@@ -355,32 +277,17 @@
         </div>
       </div>
 
-      <!-- Preview Timeline & Video Controls -->
       <div class="editor-controls">
         <div class="timeline-bar">
-          <div class="player-buttons">
-            <button class="btn-icon" id="btn-play">⏸ Pause</button>
-          </div>
-          
+          <button id="btn-play">⏸ Pause</button>
           <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="100" value="0" step="0.1">
-          
-          <div style="font-size: 0.85rem; font-family: monospace; min-width: 90px;" id="time-display">
-            0.00s / 0.00s
-          </div>
-
-          <select id="select-speed" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;">
-            <option value="0.5">0.5x Speed</option>
-            <option value="1.0" selected>1.0x Speed</option>
-            <option value="1.5">1.5x Speed</option>
-            <option value="2.0">2.0x Speed</option>
-          </select>
+          <div style="font-size: 0.85rem; font-family: monospace;" id="time-display">0.00s / 0.00s</div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    // --- Global Variables ---
     let scene, camera, renderer, controls, mixer, clock;
     let currentGltfScene = null;
     let activeClip = null;
@@ -388,10 +295,8 @@
     let isPlaying = true;
     let isUserSeeking = false;
 
-    // --- Init 3D Scene ---
     function initScene() {
       const container = document.getElementById('canvas-container');
-      
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0f172a);
 
@@ -401,63 +306,73 @@
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.shadowMap.enabled = true;
       container.appendChild(renderer.domElement);
 
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      controls.dampingFactor = 0.05;
 
-      // Lights
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
       scene.add(ambientLight);
 
       const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
       dirLight.position.set(5, 10, 7);
-      dirLight.castShadow = true;
       scene.add(dirLight);
 
       const grid = new THREE.GridHelper(20, 20, 0x3b82f6, 0x334155);
-      grid.position.y = -1;
+      grid.position.y = 0;
       scene.add(grid);
 
       clock = new THREE.Clock();
-
       createDemoObject();
 
       window.addEventListener('resize', onWindowResize);
       animate();
     }
 
-    // --- Demo Object Generation ---
     function createDemoObject() {
       const geometry = new THREE.BoxGeometry(1, 1, 1);
-      const material = new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.3 });
+      const material = new THREE.MeshStandardMaterial({ color: 0x06b6d4 });
       const cube = new THREE.Mesh(geometry, material);
-      cube.position.y = 0;
       
       const demoGroup = new THREE.Group();
       demoGroup.add(cube);
       scene.add(demoGroup);
       currentGltfScene = demoGroup;
 
-      // Bouncing Demo Animation
-      const times = [0, 0.6, 1.2, 1.8, 2.4];
-      const values = [0,0,0,  0,1.8,0,  0,0,0,  0,1.8,0,  0,0,0];
+      const times = [0, 0.6, 1.2];
+      const values = [0,0.5,0,  0,1.8,0,  0,0.5,0];
       const track = new THREE.VectorKeyframeTrack('.position', times, values);
-      activeClip = new THREE.AnimationClip('demo_clip', 2.4, [track]);
+      activeClip = new THREE.AnimationClip('demo_clip', 1.2, [track]);
 
       mixer = new THREE.AnimationMixer(currentGltfScene);
       activeAction = mixer.clipAction(activeClip);
       activeAction.play();
-
-      updateMetadata('Procedural Demo Cube', 1, times.length, '-');
     }
 
-    // --- AI Fluidizing Core Algorithm ---
+    // Centering & Bounding Box Optimization Fix
+    function centerAndFitModel(model) {
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+
+      // Pindahkan origin mesh tepat ke (0, 0, 0) dasar lantai
+      model.position.x -= center.x;
+      model.position.y -= box.min.y; // Kaki/Bagian bawah menyentuh lantai grid
+      model.position.z -= center.z;
+
+      // Reset Target Kamera ke Tengah Model
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = camera.fov * (Math.PI / 180);
+      let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 2.2;
+
+      camera.position.set(0, size.y / 2, cameraZ);
+      controls.target.set(0, size.y / 2, 0);
+      controls.update();
+    }
+
     function applyAISmoothing(clip, smoothFactor, easingType) {
       const newTracks = [];
-      const density = Math.floor(1 + (smoothFactor / 8)); // Multiplier sub-frames
+      const density = Math.floor(1 + (smoothFactor / 8));
 
       clip.tracks.forEach(track => {
         const times = track.times;
@@ -473,12 +388,9 @@
 
           for (let step = 0; step < density; step++) {
             const alpha = step / density;
-            
             let easedAlpha = alpha;
             if (easingType === 'cubic') {
               easedAlpha = alpha < 0.5 ? 4 * alpha * alpha * alpha : 1 - Math.pow(-2 * alpha + 2, 3) / 2;
-            } else if (easingType === 'elastic') {
-              easedAlpha = Math.sin((alpha * Math.PI) / 2);
             }
 
             newTimes.push(t0 + (t1 - t0) * alpha);
@@ -491,63 +403,20 @@
           }
         }
 
-        // Keyframe Terakhir
         newTimes.push(times[times.length - 1]);
-        for (let j = 0; j < stride; j++) {
-          newValues.push(values[(times.length - 1) * stride + j]);
-        }
+        for (let j = 0; j < stride; j++) newValues.push(values[(times.length - 1) * stride + j]);
 
-        let TrackType = track instanceof THREE.QuaternionKeyframeTrack ? THREE.QuaternionKeyframeTrack :
-                        track instanceof THREE.VectorKeyframeTrack ? THREE.VectorKeyframeTrack : THREE.NumberKeyframeTrack;
-
+        let TrackType = track instanceof THREE.QuaternionKeyframeTrack ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack;
         newTracks.push(new TrackType(track.name, newTimes, newValues));
       });
 
       return new THREE.AnimationClip(clip.name + '_enhanced', clip.duration, newTracks);
     }
 
-    // --- GLB Exporter ---
-    function exportToGLB() {
-      if (!currentGltfScene || !activeClip) {
-        alert('Tidak ada model atau animasi yang siap diexport!');
-        return;
-      }
-
-      const exporter = new THREE.GLTFExporter();
-      const options = {
-        binary: true,
-        animations: [activeClip]
-      };
-
-      document.getElementById('loading-text').innerText = 'Meng-generate file GLB...';
-      document.getElementById('loading').classList.add('active');
-
-      exporter.parse(
-        currentGltfScene,
-        (glbArrayBuffer) => {
-          const blob = new Blob([glbArrayBuffer], { type: 'application/octet-stream' });
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = `enhanced_animation_${Date.now()}.glb`;
-          link.click();
-
-          document.getElementById('loading').classList.remove('active');
-        },
-        (error) => {
-          console.error('Export gagal:', error);
-          alert('Gagal mengeksport model ke GLB.');
-          document.getElementById('loading').classList.remove('active');
-        },
-        options
-      );
-    }
-
-    // --- File Import Handler ---
     function load3DFile(file) {
       const url = URL.createObjectURL(file);
       const loader = new THREE.GLTFLoader();
 
-      document.getElementById('loading-text').innerText = 'Parsing 3D Asset & Rigging...';
       document.getElementById('loading').classList.add('active');
 
       loader.load(url, (gltf) => {
@@ -556,88 +425,46 @@
         currentGltfScene = gltf.scene;
         scene.add(currentGltfScene);
 
-        // Frame Camera
-        const box = new THREE.Box3().setFromObject(currentGltfScene);
-        const center = box.getCenter(new THREE.Vector3());
-        controls.target.copy(center);
-        camera.position.set(center.x, center.y + 1.5, center.z + 4);
+        // Auto Align Ke Position (0, 0, 0)
+        centerAndFitModel(currentGltfScene);
+
+        // Reset Status Indikator saat Import Baru
+        updateBadgeStatus(false);
 
         if (gltf.animations && gltf.animations.length > 0) {
           mixer = new THREE.AnimationMixer(currentGltfScene);
           activeClip = gltf.animations[0];
           activeAction = mixer.clipAction(activeClip);
           activeAction.play();
-
-          let boneCount = 0;
-          currentGltfScene.traverse((node) => { if (node.isBone) boneCount++; });
-
-          updateMetadata(file.name, boneCount || 'Mesh', activeClip.tracks[0]?.times.length || 0, '-');
-        } else {
-          alert('Warning: Model tidak memiliki track animasi!');
         }
 
-        document.getElementById('loading').classList.remove('active');
-      }, undefined, () => {
-        alert('Gagal memuat file .GLTF / .GLB');
         document.getElementById('loading').classList.remove('active');
       });
     }
 
-    function updateMetadata(name, bones, origKeys, enhKeys) {
-      document.getElementById('info-status').innerText = name;
-      document.getElementById('info-bones').innerText = bones;
-      document.getElementById('info-keys').innerText = origKeys;
-      document.getElementById('info-enhanced-keys').innerText = enhKeys;
+    // Fungsi Pengubah Indikator Visual Status
+    function updateBadgeStatus(isEnhanced) {
+      const badge = document.getElementById('badge-status');
+      const text = document.getElementById('badge-text');
+
+      if (isEnhanced) {
+        badge.classList.add('enhanced');
+        text.innerText = 'AI Enhanced Motion Active';
+      } else {
+        badge.classList.remove('enhanced');
+        text.innerText = 'Original Motion';
+      }
     }
 
-    // --- Event Handlers & Preview Editor Controls ---
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('file-input');
-    const btnPlay = document.getElementById('btn-play');
-    const timelineSlider = document.getElementById('timeline-slider');
-    const timeDisplay = document.getElementById('time-display');
-    const speedSelect = document.getElementById('select-speed');
-
-    dropzone.addEventListener('click', () => fileInput.click());
-    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) load3DFile(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', (e) => {
+    // Event Handlers
+    document.getElementById('dropzone').addEventListener('click', () => document.getElementById('file-input').click());
+    document.getElementById('file-input').addEventListener('change', (e) => {
       if (e.target.files.length) load3DFile(e.target.files[0]);
-    });
-
-    // Controls
-    btnPlay.addEventListener('click', () => {
-      isPlaying = !isPlaying;
-      btnPlay.innerText = isPlaying ? '⏸ Pause' : '▶ Play';
-    });
-
-    timelineSlider.addEventListener('input', () => {
-      if (!activeClip || !mixer) return;
-      isUserSeeking = true;
-      const seekTime = (timelineSlider.value / 100) * activeClip.duration;
-      mixer.setTime(seekTime);
-      updateTimelineUI(seekTime, activeClip.duration);
-    });
-
-    timelineSlider.addEventListener('change', () => { isUserSeeking = false; });
-
-    speedSelect.addEventListener('change', (e) => {
-      if (mixer) mixer.timeScale = parseFloat(e.target.value);
-    });
-
-    document.getElementById('slider-smooth').addEventListener('input', (e) => {
-      document.getElementById('val-smooth').innerText = `${e.target.value}%`;
     });
 
     document.getElementById('btn-process').addEventListener('click', () => {
       if (!activeClip || !mixer) return;
 
-      document.getElementById('loading-text').innerText = 'Generating Enhanced Sub-Keyframes...';
       document.getElementById('loading').classList.add('active');
 
       setTimeout(() => {
@@ -650,22 +477,17 @@
         activeAction = mixer.clipAction(activeClip);
         activeAction.play();
 
-        document.getElementById('info-enhanced-keys').innerText = `${activeClip.tracks[0].times.length} frames`;
+        // Aktifkan Indikator Enhanced Glow
+        updateBadgeStatus(true);
+
         document.getElementById('loading').classList.remove('active');
-      }, 500);
+      }, 400);
     });
 
-    document.getElementById('btn-export').addEventListener('click', exportToGLB);
+    document.getElementById('slider-smooth').addEventListener('input', (e) => {
+      document.getElementById('val-smooth').innerText = `${e.target.value}%`;
+    });
 
-    function updateTimelineUI(time, duration) {
-      if (!duration) return;
-      if (!isUserSeeking) {
-        timelineSlider.value = (time / duration) * 100;
-      }
-      timeDisplay.innerText = `${time.toFixed(2)}s / ${duration.toFixed(2)}s`;
-    }
-
-    // --- Animation Loop ---
     function onWindowResize() {
       const container = document.getElementById('canvas-container');
       camera.aspect = container.clientWidth / container.clientHeight;
@@ -676,13 +498,12 @@
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
-
       if (mixer && activeClip && isPlaying && !isUserSeeking) {
         mixer.update(delta);
-        const currentTime = mixer.time % activeClip.duration;
-        updateTimelineUI(currentTime, activeClip.duration);
+        const time = mixer.time % activeClip.duration;
+        document.getElementById('timeline-slider').value = (time / activeClip.duration) * 100;
+        document.getElementById('time-display').innerText = `${time.toFixed(2)}s / ${activeClip.duration.toFixed(2)}s`;
       }
-
       controls.update();
       renderer.render(scene, camera);
     }
