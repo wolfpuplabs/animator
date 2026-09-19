@@ -232,6 +232,12 @@ memeriksa hal-hal yang gampang rusak diam-diam: statistik per-klip tidak
 tertukar, memproses satu klip tidak membatalkan hasil klip lain, dan
 export tidak kehilangan animasi yang belum diproses.
 
+`tests/browser/layout.test.js` memuat halaman di delapan ukuran layar dan
+memastikan transport bar tidak pernah terdorong keluar layar dan kanvas
+tidak pernah mengecil jadi nol. Kondisi toolbar browser tidak bisa ditiru
+di headless — `dvh` dan `vh` bernilai sama di sana — jadi pemakaian `dvh`
+diperiksa langsung di berkas CSS-nya.
+
 `tests/browser/standalone.test.js` menjalankan `standalone.html` sendiri,
 bukan cuma memeriksa isinya — berkas itulah yang paling mungkin dipakai
 orang apa adanya.
@@ -252,6 +258,9 @@ orang apa adanya.
 - **Alat ini tidak mengarang gerakan.** Kalau gerakan aslinya secara
   fundamental salah — timing meleset, pose tidak terbaca — ini tidak akan
   memperbaikinya. Yang dikerjakan adalah kefluidan, bukan penyutradaraan.
+- **Tinggi app memakai `dvh`.** Browser lama yang belum mengenalnya jatuh
+  ke `100vh`, dan di sana bagian bawah halaman bisa tertutup toolbar
+  browser pada ponsel/tablet.
 - **Pemrosesan di main thread.** Klip dikerjakan satu per satu lewat
   `setTimeout` supaya UI tidak membeku, tapi rig sangat besar dengan frame
   rate tinggi tetap akan terasa jeda. Web Worker adalah langkah berikutnya
