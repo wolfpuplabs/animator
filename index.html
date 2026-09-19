@@ -12,6 +12,7 @@
       --accent-cyan: #06b6d4;
       --accent-green: #10b981;
       --accent-purple: #8b5cf6;
+      --accent-red: #ef4444;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --border: #334155;
@@ -111,13 +112,15 @@
       border: none;
       font-weight: 600;
       color: #fff;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
     }
+
+    .btn-primary:hover, .btn-success:hover { opacity: 0.9; transform: translateY(-1px); }
 
     .viewport-container { flex: 1; display: flex; flex-direction: column; position: relative; }
     .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
     #canvas-container { width: 100%; height: 100%; }
 
-    /* Indikator Enhanced Dynamic Badge */
     .badge-status {
       position: absolute;
       top: 1rem;
@@ -143,24 +146,14 @@
       box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
     }
 
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--text-muted);
-    }
-
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
     .badge-status.enhanced .dot {
       background: var(--accent-purple);
       box-shadow: 0 0 8px var(--accent-purple);
       animation: pulse 1.5s infinite;
     }
 
-    @keyframes pulse {
-      0% { opacity: 0.4; }
-      50% { opacity: 1; }
-      100% { opacity: 0.4; }
-    }
+    @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
 
     .editor-controls {
       background: var(--card-bg);
@@ -201,6 +194,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
+  <!-- Load Three.js Components -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -264,7 +258,6 @@
 
     <div class="viewport-container">
       <div class="viewport">
-        <!-- Dynamic Status Indicator -->
         <div class="badge-status" id="badge-status">
           <div class="dot"></div> <span id="badge-text">Original Motion</span>
         </div>
@@ -294,6 +287,7 @@
     let activeAction = null;
     let isPlaying = true;
     let isUserSeeking = false;
+    let originalFileName = 'model';
 
     function initScene() {
       const container = document.getElementById('canvas-container');
@@ -349,18 +343,15 @@
       activeAction.play();
     }
 
-    // Centering & Bounding Box Optimization Fix
     function centerAndFitModel(model) {
       const box = new THREE.Box3().setFromObject(model);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
 
-      // Pindahkan origin mesh tepat ke (0, 0, 0) dasar lantai
       model.position.x -= center.x;
-      model.position.y -= box.min.y; // Kaki/Bagian bawah menyentuh lantai grid
+      model.position.y -= box.min.y;
       model.position.z -= center.z;
 
-      // Reset Target Kamera ke Tengah Model
       const maxDim = Math.max(size.x, size.y, size.z);
       const fov = camera.fov * (Math.PI / 180);
       let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 2.2;
@@ -410,13 +401,69 @@
         newTracks.push(new TrackType(track.name, newTimes, newValues));
       });
 
-      return new THREE.AnimationClip(clip.name + '_enhanced', clip.duration, newTracks);
+      return new THREE.AnimationClip(clip.name || 'enhanced_clip', clip.duration, newTracks);
+    }
+
+    // --- FIX GLB EXPORTER ENGINE ---
+    function exportToGLB() {
+      if (!currentGltfScene) {
+        alert('Tidak ada model 3D yang aktif untuk dieksport.');
+        return;
+      }
+
+      const exporter = new THREE.GLTFExporter();
+      const loadingOverlay = document.getElementById('loading');
+      const loadingText = document.getElementById('loading-text');
+
+      loadingText.innerText = 'Mengemas Model & Keyframe ke .GLB...';
+      loadingOverlay.classList.add('active');
+
+      // Opsi Exporter Khusus untuk Mencegah Error
+      const options = {
+        binary: true,
+        animations: activeClip ? [activeClip] : [],
+        embedImages: true,
+        truncateDrawRange: true
+      };
+
+      try {
+        exporter.parse(
+          currentGltfScene,
+          function (glbBuffer) {
+            loadingOverlay.classList.remove('active');
+            
+            // Konversi ArrayBuffer ke File Download
+            const blob = new Blob([glbBuffer], { type: 'application/octet-stream' });
+            const link = document.createElement('a');
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            
+            link.href = URL.createObjectURL(blob);
+            link.download = `${originalFileName}_enhanced.glb`;
+            link.click();
+            
+            document.body.removeChild(link);
+          },
+          function (error) {
+            console.error('GLTFExporter Error:', error);
+            loadingOverlay.classList.remove('active');
+            alert('Gagal mengeksport GLB. Pastikan browser tidak memblokir download.');
+          },
+          options
+        );
+      } catch (err) {
+        console.error('Export exception:', err);
+        loadingOverlay.classList.remove('active');
+        alert('Terjadi kesalahan teknis saat memproses file GLB.');
+      }
     }
 
     function load3DFile(file) {
+      originalFileName = file.name.replace(/\.[^/.]+$/, "");
       const url = URL.createObjectURL(file);
       const loader = new THREE.GLTFLoader();
 
+      document.getElementById('loading-text').innerText = 'Memuat Model 3D...';
       document.getElementById('loading').classList.add('active');
 
       loader.load(url, (gltf) => {
@@ -425,10 +472,7 @@
         currentGltfScene = gltf.scene;
         scene.add(currentGltfScene);
 
-        // Auto Align Ke Position (0, 0, 0)
         centerAndFitModel(currentGltfScene);
-
-        // Reset Status Indikator saat Import Baru
         updateBadgeStatus(false);
 
         if (gltf.animations && gltf.animations.length > 0) {
@@ -436,13 +480,19 @@
           activeClip = gltf.animations[0];
           activeAction = mixer.clipAction(activeClip);
           activeAction.play();
+
+          document.getElementById('info-status').innerText = file.name;
+          document.getElementById('info-keys').innerText = activeClip.tracks[0]?.times.length || 0;
         }
 
+        document.getElementById('loading').classList.remove('active');
+      }, undefined, (err) => {
+        console.error(err);
+        alert('Gagal membaca file 3D. Pastikan format file .gltf / .glb valid.');
         document.getElementById('loading').classList.remove('active');
       });
     }
 
-    // Fungsi Pengubah Indikator Visual Status
     function updateBadgeStatus(isEnhanced) {
       const badge = document.getElementById('badge-status');
       const text = document.getElementById('badge-text');
@@ -465,6 +515,7 @@
     document.getElementById('btn-process').addEventListener('click', () => {
       if (!activeClip || !mixer) return;
 
+      document.getElementById('loading-text').innerText = 'Proses Smoothing AI & Re-Keyframe...';
       document.getElementById('loading').classList.add('active');
 
       setTimeout(() => {
@@ -477,12 +528,15 @@
         activeAction = mixer.clipAction(activeClip);
         activeAction.play();
 
-        // Aktifkan Indikator Enhanced Glow
         updateBadgeStatus(true);
+        document.getElementById('info-enhanced-keys').innerText = `${activeClip.tracks[0].times.length} frames`;
 
         document.getElementById('loading').classList.remove('active');
       }, 400);
     });
+
+    // Binding Tombol Export
+    document.getElementById('btn-export').addEventListener('click', exportToGLB);
 
     document.getElementById('slider-smooth').addEventListener('input', (e) => {
       document.getElementById('val-smooth').innerText = `${e.target.value}%`;
