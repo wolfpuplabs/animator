@@ -32,6 +32,14 @@ body {
    */
   height: 100vh;
   height: 100dvh;
+  /*
+   * --app-height diisi JavaScript dari visualViewport, yaitu tinggi yang
+   * benar-benar terlihat. Sebagian browser ponsel dan tablet melaporkan
+   * dvh lebih besar dari itu, dan bar kontrol di bawah ikut terdorong
+   * keluar layar. Kalau variabelnya belum ada, nilainya jatuh ke 100dvh,
+   * lalu ke 100vh untuk browser yang belum mengenal dvh.
+   */
+  height: var(--app-height, 100dvh);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -329,6 +337,10 @@ input[type="range"] {
  */
 .viewport { flex: 1; position: relative; min-height: 0; }
 #canvas-host { position: absolute; inset: 0; }
+
+/* Pengaman kedua: apa pun ukuran buffer gambarnya, elemen kanvas tidak
+   boleh lebih besar dari wadahnya. */
+#canvas-host canvas { display: block; width: 100%; height: 100%; }
 
 .ab-switch {
   position: absolute;

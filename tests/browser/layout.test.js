@@ -97,6 +97,99 @@ const probe = (page) => page.evaluate(() => {
     await page.close();
   }
 
+  r.section('Layar ber-kerapatan tinggi');
+  /*
+   * Celah nyata di pengujian sebelumnya: semuanya berjalan di dpr 1.
+   *
+   * Dengan renderer.setSize(w, h, false), three hanya menyetel atribut
+   * width/height kanvas ke ukuran buffer gambar dan tidak menyetel gaya
+   * CSS-nya. Di dpr 2 elemen kanvasnya jadi dua kali lebih besar dari
+   * wadahnya — model yang di tengah kanvas muncul di pojok kanan bawah,
+   * ukurannya membesar, dan bar kontrol terdorong keluar. Semua test
+   * lolos karena tidak satu pun berjalan di luar dpr 1.
+   */
+  for (const dpr of [1, 2, 3]) {
+    const page = await browser.newPage({
+      locale: 'id-ID', viewport: { width: 1194, height: 790 }, deviceScaleFactor: dpr
+    });
+    page.on('pageerror', e => errors.push('dpr' + dpr + ': ' + e.message));
+    await page.goto(url);
+    await page.waitForTimeout(1700);
+
+    const m = await page.evaluate(() => {
+      const host = document.getElementById('canvas-host').getBoundingClientRect();
+      const cv = document.querySelector('#canvas-host canvas');
+      const rect = cv.getBoundingClientRect();
+      const tr = document.querySelector('.transport').getBoundingClientRect();
+      return {
+        dpr: window.devicePixelRatio,
+        hostW: Math.round(host.width), hostH: Math.round(host.height),
+        cssW: Math.round(rect.width), cssH: Math.round(rect.height),
+        bufW: cv.width, bufH: cv.height,
+        transportBottom: Math.round(tr.bottom), innerH: window.innerHeight
+      };
+    });
+    r.info('dpr ' + m.dpr + ': wadah ' + m.hostW + '\u00d7' + m.hostH +
+      ', kanvas CSS ' + m.cssW + '\u00d7' + m.cssH + ', buffer ' + m.bufW + '\u00d7' + m.bufH);
+
+    r.check('dpr ' + dpr + ': kanvas tidak lebih besar dari wadahnya',
+      m.cssW <= m.hostW + 2 && m.cssH <= m.hostH + 2,
+      m.cssW + '\u00d7' + m.cssH + ' vs wadah ' + m.hostW + '\u00d7' + m.hostH);
+    r.check('dpr ' + dpr + ': kanvas mengisi wadahnya',
+      m.cssW >= m.hostW - 2 && m.cssH >= m.hostH - 2,
+      m.cssW + '\u00d7' + m.cssH);
+    r.check('dpr ' + dpr + ': buffer gambar tetap mengikuti kerapatan layar',
+      m.bufW >= m.cssW * Math.min(m.dpr, 2) - 4, m.bufW + ' untuk css ' + m.cssW);
+    r.check('dpr ' + dpr + ': bar kontrol tetap terlihat',
+      m.transportBottom <= m.innerH + 1, m.transportBottom + '/' + m.innerH);
+    await page.close();
+  }
+
+  r.section('Tinggi app dikunci ke area yang terlihat');
+  {
+    const page = await browser.newPage({ locale: 'id-ID', viewport: { width: 1024, height: 700 } });
+    page.on('pageerror', e => errors.push('app-height: ' + e.message));
+    await page.goto(url);
+    await page.waitForTimeout(1600);
+
+    const varValue = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--app-height').trim());
+    r.info('--app-height = ' + varValue + ' (innerHeight ' + (await page.evaluate(() => window.innerHeight)) + ')');
+    r.check('--app-height disetel oleh JavaScript', /\d+px/.test(varValue), varValue);
+
+    // Inti pengujiannya: satuan CSS viewport tidak bisa ditiru di
+    // headless, tapi PLUMBING-nya bisa. Kalau variabelnya dikecilkan
+    // paksa, tata letak harus ikut mengecil dan bar kontrol tetap di
+    // dalamnya — itu yang menjamin perbaikan ini bekerja di perangkat
+    // yang melaporkan viewport lebih tinggi dari kenyataan.
+    // Sengaja TANPA memicu event resize: handler resize akan memanggil
+    // syncAppHeight dan langsung menimpa nilai paksaan ini.
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--app-height', '420px');
+    });
+    await page.waitForTimeout(300);
+
+    const shrunk = await page.evaluate(() => {
+      const body = document.body.getBoundingClientRect();
+      const tr = document.querySelector('.transport').getBoundingClientRect();
+      const cv = document.querySelector('#canvas-host canvas').getBoundingClientRect();
+      return {
+        bodyH: Math.round(body.height),
+        transportBottom: Math.round(tr.bottom),
+        transportH: Math.round(tr.height),
+        canvasH: Math.round(cv.height)
+      };
+    });
+    r.info('dipaksa 420px: body ' + shrunk.bodyH + ', transport bawah ' + shrunk.transportBottom +
+      ', kanvas tinggi ' + shrunk.canvasH);
+    r.check('tata letak mengikuti --app-height', Math.abs(shrunk.bodyH - 420) <= 1, String(shrunk.bodyH));
+    r.check('bar kontrol tetap di dalam tinggi yang dipaksa',
+      shrunk.transportBottom <= 421, String(shrunk.transportBottom));
+    r.check('bar kontrol tidak tergencet habis', shrunk.transportH > 30, String(shrunk.transportH));
+    r.check('kanvas masih punya ukuran', shrunk.canvasH > 60, String(shrunk.canvasH));
+    await page.close();
+  }
+
   r.section('Final');
   r.check('tidak ada error JS di ukuran mana pun', errors.length === 0, errors.join('\n      '));
 

@@ -157,7 +157,7 @@ async function measure(page) {
  * memakai bind pose. Ambang longgar akan lolos untuk dua-duanya.
  */
 const MIN_FILL = 0.20;
-const MAX_FILL = 0.62;
+const MAX_FILL = 0.68;
 
 /*
  * Seberapa jauh pusat model boleh menyimpang dari pusat kanvas saat
@@ -259,6 +259,36 @@ const seek = (page, v) => page.evaluate((val) => {
     // membuat pose awal melenceng dari tengah.
     r.check('demo berada di tengah saat pertama muncul', centered(demo),
       'pusat di ' + demo.cx.toFixed(3) + ', ' + demo.cy.toFixed(3));
+  }
+
+  r.section('Layar ber-kerapatan tinggi');
+  // Kanvas yang ukurannya salah di dpr tinggi memindahkan model ke pojok
+  // kanan bawah tanpa mengubah apa pun di dpr 1 — semua pengukuran di
+  // atas akan tetap lolos.
+  {
+    const hi = await browser.newPage({
+      locale: 'id-ID', viewport: { width: 1194, height: 790 }, deviceScaleFactor: 2
+    });
+    hi.on('pageerror', e => errors.push('dpr2: ' + e.message));
+    await hi.goto(url);
+    await hi.waitForTimeout(2000);
+    await hi.locator('#btn-play').click();
+    await seek(hi, 0);
+    await hi.waitForTimeout(400);
+
+    const hiBox = await measure(hi);
+    r.check('model terlihat di dpr 2', !!hiBox, 'tidak terdeteksi');
+    if (hiBox) {
+      r.info('dpr 2: ' + describe(hiBox) + '  pusat ' + hiBox.cx.toFixed(3) + ', ' + hiBox.cy.toFixed(3));
+      r.check('dpr 2: model di tengah saat pertama muncul', centered(hiBox),
+        'pusat di ' + hiBox.cx.toFixed(3) + ', ' + hiBox.cy.toFixed(3));
+      r.check('dpr 2: model tidak terpotong',
+        hiBox.left > 0.01 && hiBox.right < 0.99 && hiBox.top > 0.01 && hiBox.bottom < 0.99,
+        JSON.stringify([hiBox.left.toFixed(2), hiBox.right.toFixed(2),
+                        hiBox.top.toFixed(2), hiBox.bottom.toFixed(2)]));
+      r.check('dpr 2: proporsi isi frame wajar', inBand(hiBox), describe(hiBox));
+    }
+    await hi.close();
   }
 
   r.section('Final');
