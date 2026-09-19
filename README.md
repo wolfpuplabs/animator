@@ -263,10 +263,22 @@ dirender: model harus utuh, berada di tengah saat pertama muncul, dan
 mengisi frame dengan proporsi wajar.
 
 Ambangnya sengaja ketat, dan itu bukan kehati-hatian berlebihan. Dengan bug
-bounding box yang lama model mengisi 77% tinggi frame alih-alih 38%; dengan
+bounding box yang lama model mengisi 96% tinggi frame alih-alih 42%; dengan
 kamera yang membidik pusat lintasan, pose awal mendarat di 0,37/0,62 alih-
 alih 0,50/0,50. Kedua keadaan itu lolos ambang longgar yang dipakai versi
 pertama test ini.
+
+Jaraknya tidak dipercaya dari rumus saja. Setelah kamera ditempatkan,
+delapan sudut kotak pose awal diproyeksikan ke layar dan jaraknya
+dikoreksi sampai semuanya masuk dengan margin yang wajar — rumus yang
+mengandaikan model muat dalam satu bola bisa meleset untuk bentuk panjang
+seperti rentang sayap.
+
+`framing.test.js` dan `layout.test.js` keduanya berjalan di device pixel
+ratio 1, 2, dan 3. Ini bukan tambahan hiasan: kanvas yang ukurannya salah
+di dpr tinggi memindahkan model ke pojok kanan bawah dan mendorong bar
+kontrol keluar layar, tanpa mengubah apa pun di dpr 1 — seluruh suite
+lolos sementara perangkat sungguhan rusak.
 
 `tests/browser/compare.test.js` membandingkan screenshot untuk memastikan
 tombol A/B benar-benar mengubah pose yang dirender, bayangan original
@@ -307,6 +319,16 @@ orang apa adanya.
 - **`.gltf` dengan file terpisah tidak bisa dimuat.** Berkas dibaca lewat
   object URL, jadi referensi ke `.bin` dan tekstur di sebelahnya tidak
   ter-resolve. Pakai `.glb`.
+- **Ukuran kanvas disetel eksplisit, bukan diserahkan ke atribut.**
+  `renderer.setSize(w, h)` harus dibiarkan memperbarui gaya CSS kanvas.
+  Dengan argumen ketiga `false`, three hanya menyetel atribut
+  width/height ke ukuran buffer gambar — di layar dpr 2 elemen kanvasnya
+  jadi dua kali lebih besar dari wadahnya. Ada aturan CSS sebagai
+  pengaman kedua.
+- **Tinggi app digerakkan JavaScript.** `--app-height` diisi dari
+  `visualViewport`, karena sebagian browser ponsel dan tablet melaporkan
+  satuan viewport CSS lebih besar dari area yang benar-benar terlihat.
+  Nilainya jatuh ke `100dvh` lalu `100vh` kalau skrip gagal jalan.
 - **Framing membidik pose awal, bukan pusat lintasan.** Kamera diarahkan
   ke pusat pose di frame 0 supaya model terlihat di tengah saat pertama
   muncul, sementara jaraknya dihitung agar seluruh lintasan gerak tetap

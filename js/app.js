@@ -95,17 +95,58 @@
 
     state.clock = new THREE.Clock();
     window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    if (window.visualViewport) {
+      // Toolbar browser yang muncul-hilang saat scroll mengubah ini tanpa
+      // memicu resize biasa.
+      window.visualViewport.addEventListener('resize', onResize);
+    }
     onResize();
     tick();
   }
 
+  /**
+   * Kunci tinggi app ke area yang benar-benar terlihat.
+   *
+   * Satuan viewport CSS tidak bisa diandalkan di browser ponsel dan
+   * tablet: sebagian melaporkan tinggi seolah-olah toolbar tidak ada,
+   * sehingga bar kontrol di bawah terdorong keluar layar dan tidak bisa
+   * di-scroll karena overflow disembunyikan. visualViewport melaporkan
+   * yang sebenarnya terlihat.
+   *
+   * Saat pengguna melakukan pinch-zoom, visualViewport ikut mengecil —
+   * itu bukan perubahan tata letak, jadi diabaikan.
+   */
+  function syncAppHeight() {
+    var vv = window.visualViewport;
+    var height = window.innerHeight;
+    if (vv && (!vv.scale || vv.scale <= 1.01)) {
+      height = Math.min(height, vv.height);
+    }
+    if (height > 0) {
+      document.documentElement.style.setProperty('--app-height', height + 'px');
+    }
+  }
+
   function onResize() {
+    syncAppHeight();
     var host = $('canvas-host');
     var w = host.clientWidth || 1;
     var h = host.clientHeight || 1;
     state.camera.aspect = w / h;
     state.camera.updateProjectionMatrix();
-    state.renderer.setSize(w, h, false);
+
+    /*
+     * Argumen ketiga HARUS dibiarkan default (true).
+     *
+     * Dengan false, three hanya menyetel atribut width/height kanvas ke
+     * ukuran buffer gambar — yaitu ukuran CSS dikali device pixel ratio —
+     * dan tidak menyetel gaya CSS-nya. Di layar dengan dpr 2, elemen
+     * kanvasnya jadi dua kali lebih besar dari wadahnya: model yang
+     * berada di tengah kanvas muncul di pojok kanan bawah area yang
+     * terlihat, ukurannya membesar, dan bar kontrol terdorong keluar.
+     */
+    state.renderer.setSize(w, h);
   }
 
   function tick() {
@@ -276,14 +317,62 @@
     }
 
     var radius = Math.min(travelRadius, restRadius * MAX_TRAVEL_ZOOM_OUT);
-    var fov = state.camera.fov * Math.PI / 180;
-    var dist = Math.abs(radius / Math.tan(fov / 2)) * 1.15;
-
     var dir = new THREE.Vector3(0.48, 0.35, 1).normalize();
-    state.camera.position.copy(target).addScaledVector(dir, dist);
-    state.camera.near = Math.max(maxDim / 500, 0.01);
-    state.camera.far = dist * 12 + radius * 4;
-    state.camera.updateProjectionMatrix();
+
+    // Jarak awal dari FOV vertikal DAN horizontal. Memakai yang vertikal
+    // saja membuat model lebar — rentang sayap, misalnya — meluber keluar
+    // di viewport yang sempit.
+    var halfV = Math.tan(state.camera.fov * Math.PI / 360);
+    var aspect = state.camera.aspect || 1;
+    var halfH = halfV * aspect;
+    var dist = Math.max(radius / halfV, radius / halfH) * 1.15;
+
+    function place(distance) {
+      state.camera.position.copy(target).addScaledVector(dir, distance);
+      state.camera.near = Math.max(maxDim / 500, 0.01);
+      state.camera.far = distance * 12 + radius * 4;
+      state.camera.updateProjectionMatrix();
+      state.camera.updateMatrixWorld(true);
+    }
+
+    /*
+     * Rumus di atas mengandaikan model muat dalam bola berjari-jari
+     * `radius` di sekitar titik bidik. Untuk bentuk yang panjang atau
+     * yang jauh dari titik asalnya, andaian itu bisa meleset dan model
+     * berakhir setengah keluar layar.
+     *
+     * Jadi hasilnya diperiksa, bukan dipercaya: delapan sudut kotak pose
+     * awal diproyeksikan ke layar, lalu jaraknya dikoreksi sampai
+     * semuanya masuk dengan margin yang wajar.
+     */
+    var corners = [];
+    for (var c = 0; c < 8; c++) {
+      corners.push(new THREE.Vector3(
+        (c & 1) ? restBox.max.x : restBox.min.x,
+        (c & 2) ? restBox.max.y : restBox.min.y,
+        (c & 4) ? restBox.max.z : restBox.min.z
+      ));
+    }
+
+    // Seberapa jauh sudut terjauh model boleh mencapai tepi frame, dalam
+    // koordinat layar ternormalisasi (1 = tepat di tepi). 0,58 menyisakan
+    // margin yang cukup supaya model tidak menyenggol tepi saat bergerak.
+    var TARGET_FILL = 0.58;
+    var probe = new THREE.Vector3();
+
+    place(dist);
+    for (var pass = 0; pass < 4; pass++) {
+      var extent = 0;
+      for (var k = 0; k < corners.length; k++) {
+        probe.copy(corners[k]).project(state.camera);
+        extent = Math.max(extent, Math.abs(probe.x), Math.abs(probe.y));
+      }
+      if (!(extent > 0) || !isFinite(extent)) break;
+      if (Math.abs(extent - TARGET_FILL) < 0.03) break;
+      dist *= extent / TARGET_FILL;
+      place(dist);
+    }
+
     state.controls.target.copy(target);
     state.controls.update();
   }
@@ -1328,6 +1417,7 @@
     buildPresetButtons();
     applyPreset('balanced');
     bindEvents();
+    syncAppHeight();
     // Bahasa disetel sebelum apa pun digambar, supaya tidak ada teks yang
     // sempat muncul dalam bahasa yang salah lalu berkedip berubah.
     I18n.setLang(I18n.detect());
