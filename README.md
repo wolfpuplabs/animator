@@ -1,1 +1,187 @@
-# animator
+# MFS 5 — Motion Fluidity Synthesis
+
+Enhancer kefluidan animasi 3D untuk klip **glTF / GLB**. Semangatnya seperti
+upscaler frame di game — rekonstruksi sinyal, filter yang sadar gerakan,
+sintesis detail, lalu pemadatan — tapi yang dinaikkan bukan piksel,
+melainkan **kurva animasi**.
+
+Jalankan `index.html` di browser. Tidak ada build step.
+
+> **Ini bukan neural network.** Tidak ada model terlatih, tidak ada inferensi.
+> Yang bekerja adalah pipeline signal-processing deterministik di atas
+> keyframe. Hasilnya bisa dijelaskan, bisa diulang persis, dan berjalan
+> dalam hitungan milidetik — tapi dia tidak "mengarang" gerakan baru yang
+> tidak ada di data aslinya.
+
+---
+
+## Untuk apa
+
+Animasi terasa patah biasanya karena beberapa hal, dan semuanya ditangani:
+
+| Gejala | Penyebab | Yang dilakukan |
+|---|---|---|
+| Gerakan tersendat seperti stop-motion | Keyframe jarang, playback menginterpolasi linear | Rekonstruksi Hermite/Squad ke frame rate target |
+| Getaran halus yang bikin gelisah | Jitter dari motion capture atau hand-key | Filter bilateral temporal |
+| Gerakan terasa kaku, seperti robot | Tidak ada follow-through / cushion | Dinamika orde dua |
+| Rotasi tiba-tiba melintir sejauh 360° | Quaternion beda hemisphere antar-key | Penyelarasan hemisphere |
+| Kaki meluncur, pose hold melayang | Smoothing diterapkan rata ke seluruh kurva | Motion mask + contact lock |
+
+---
+
+## Pipeline
+
+```
+keyframe asli
+   │
+   ├─ 1. Hemisphere alignment ── buang flip/pop rotasi
+   ├─ 2. Reconstruct ────────── Hermite hold-aware (posisi/skala)
+   │                            Squad (rotasi) → grid rapat, C1-continuous
+   ├─ 3. Denoise ───────────── filter bilateral temporal
+   ├─ 4. Synthesize ────────── dinamika orde dua (follow-through)
+   └─ 5. Compact ───────────── decimation keyframe berbatas error
+```
+
+**1. Hemisphere alignment.** Dua quaternion `q` dan `−q` mewakili rotasi yang
+sama persis, tapi interpolasi di antaranya menempuh jalan memutar. Semua key
+diselaraskan lebih dulu. Penting terutama untuk file yang akan dipakai engine
+lain, yang banyak di antaranya melakukan lerp mentah.
+
+**2. Reconstruct.** Kurva di-resample ke grid seragam sesuai frame rate target.
+
+- Posisi/skala pakai Hermite dengan tangen Catmull-Rom non-uniform, ditambah
+  *limiter monotonik*: kalau dua secant di sekitar sebuah key berlawanan arah
+  atau salah satunya datar, tangennya dipaksa nol. Efeknya, **pose hold tetap
+  diam** dan puncak lompatan tidak melengkung keluar.
+- Rotasi pakai Squad (spherical cubic), bukan slerp berantai — slerp berantai
+  memutus kecepatan sudut tiap kali melewati keyframe.
+
+**3. Denoise.** Bilateral temporal filter: bobotnya gabungan jarak waktu *dan*
+selisih nilai. Getaran kecil hilang, tapi lonjakan besar (impact, snap)
+bertahan. Window menciut simetris di tepi klip, atau melingkar kalau kurvanya
+memang menyambung — supaya tidak ada pop di frame 0 dan di titik loop.
+
+**4. Synthesize.** Sistem massa-pegas-peredam orde dua memberi follow-through,
+cushion, dan overshoot organik. Parameter `r = 2` dipilih supaya lag pada
+gerakan berkecepatan tetap tepat **nol** — animasinya tidak mundur beberapa
+frame. Overshoot murni muncul saat gerakan berbelok.
+
+**5. Compact.** Hasil 120 fps itu indah tapi boros. Key yang bisa
+direkonstruksi ulang lewat interpolasi linear dalam batas error tertentu
+dibuang.
+
+### Motion mask
+
+Tahap 3 dan 4 tidak diterapkan rata. Kecepatan lokal kurva sumber dipakai
+sebagai mask: di area yang praktis diam — kaki menapak, pose hold — smoothing
+dan pegas dimatikan. Tanpa ini, kaki akan meluncur dan pose hold jadi melayang.
+
+---
+
+## Preset
+
+| Preset | fps | Smoothing | Follow-through | Reduction |
+|---|---|---|---|---|
+| Performance | 30 | 25% | 0% | 30% |
+| Balanced | 60 | 45% | 20% | 12% |
+| Quality | 90 | 60% | 35% | 5% |
+| Ultra Fluid | 120 | 75% | 50% | 0% |
+
+**Catatan soal keyframe reduction.** Ini trade-off langsung terhadap
+kehalusan, bukan pilihan gratis. Playback menginterpolasi linear di antara
+key, jadi setiap key yang dibuang mengembalikan sedikit "sudut" ke kurva.
+Pada klip uji, menaikkan reduction dari 0 ke 18% memangkas perolehan
+kehalusan dari 46% menjadi 26%. Preset sengaja dijaga rendah; naikkan hanya
+kalau ukuran file jadi masalah.
+
+---
+
+## Membaca laporan
+
+- **Jitter** — angka utama. Diukur **setelah** keyframe reduction dan
+  **setelah** follow-through, memakai interpolasi linear seperti yang
+  dilakukan player saat runtime. Jadi ini benar-benar yang akan terlihat,
+  bukan angka ideal di atas kertas.
+- **↳ kurva mentah** — muncul kalau berbeda jauh: kualitas kurva sebelum
+  dipadatkan dan sebelum overshoot ditambahkan. Kalau angka utama lebih
+  rendah, selisihnya adalah harga dari reduction dan overshoot.
+
+Metriknya adalah RMS percepatan dibagi RMS kecepatan, bebas skala. RMS,
+bukan L1: kurva patah dan kurva mulus yang melewati titik yang sama punya
+total variasi kecepatan yang mirip, jadi L1 hampir tidak bisa membedakannya.
+
+Pada kurva yang sudah mulus sempurna, angkanya mendekati nol — alat ini
+tidak memperbaiki apa yang tidak rusak, dan tidak merusaknya juga.
+
+---
+
+## Struktur
+
+```
+index.html              markup + skrip
+css/style.css           tampilan
+js/fluidizer.js         engine (JS murni, tanpa dependensi, bisa dipakai di node)
+js/three-adapter.js     jembatan THREE.AnimationClip ↔ engine
+js/app.js               viewer, kontrol, export
+tests/fluidizer.test.js unit test engine
+tests/browser/          test end-to-end di browser sungguhan
+```
+
+Engine sengaja tidak tahu apa-apa soal three.js, jadi bisa dipakai di
+pipeline lain:
+
+```js
+const Fluidizer = require('./js/fluidizer.js');
+
+const hasil = Fluidizer.enhance({
+  duration: 2.0,
+  tracks: [{ name: 'Hips.quaternion', type: 'quaternion', times, values }]
+}, { preset: 'quality' });
+
+console.log(hasil.stats.smoothnessGain); // mis. 0.51
+```
+
+Tipe track yang didukung: `vector`, `quaternion`, `number` (termasuk morph
+target dengan stride > 1), `color`. Track `bool` dan `string` disalin apa
+adanya karena tidak punya "kehalusan".
+
+---
+
+## Test
+
+```bash
+npm install          # hanya untuk test browser
+npm test             # unit test engine (tanpa dependensi)
+npm run test:browser # end-to-end di Chromium
+npm run test:all
+```
+
+Test browser menyalin halaman ke direktori sementara dan mengarahkan tag
+`<script>`-nya ke three.js dari `node_modules`, jadi tidak bergantung pada
+jaringan. Kalau sudah punya Chromium sendiri, set `CHROMIUM_PATH`.
+
+`tests/browser/rigged.test.js` membuat rig skinned sungguhan, mengekspornya
+jadi GLB, memuatnya lewat file input aplikasi, meng-enhance, mengekspor
+ulang, lalu memuat hasilnya kembali — memastikan skin dan hierarki bone
+selamat melewati seluruh perjalanan.
+
+---
+
+## Batasan yang diketahui
+
+- **`.gltf` dengan file terpisah tidak bisa dimuat.** Berkas dibaca lewat
+  object URL, jadi referensi ke `.bin` dan tekstur di sebelahnya tidak
+  ter-resolve. Pakai `.glb`.
+- **Framing kamera untuk skinned mesh hanya perkiraan.** three r128 tidak
+  menghitung deformasi skinning di `Box3.setFromObject`, jadi kotak batasnya
+  memakai bounding box geometri. Tetap jauh lebih baik daripada memakai satu
+  pose diam, tapi model yang deformasinya ekstrem bisa agak longgar.
+- **Alat ini tidak mengarang gerakan.** Kalau gerakan aslinya secara
+  fundamental salah — timing meleset, pose tidak terbaca — ini tidak akan
+  memperbaikinya. Yang dikerjakan adalah kefluidan, bukan penyutradaraan.
+- **Pemrosesan di main thread.** Klip dikerjakan satu per satu lewat
+  `setTimeout` supaya UI tidak membeku, tapi rig sangat besar dengan frame
+  rate tinggi tetap akan terasa jeda. Web Worker adalah langkah berikutnya
+  yang masuk akal.
+- Dimuat dari CDN: three.js r128 (dipatok, karena build `examples/js`
+  non-module tidak ada lagi di versi baru).

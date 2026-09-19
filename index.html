@@ -3,596 +3,147 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 3D Animation Enhancer & Studio Exporter</title>
-  <style>
-    :root {
-      --bg-dark: #0f172a;
-      --card-bg: #1e293b;
-      --accent-blue: #3b82f6;
-      --accent-cyan: #06b6d4;
-      --accent-green: #10b981;
-      --accent-purple: #8b5cf6;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --border: #334155;
-    }
+  <title>MFS 5 — Motion Fluidity Synthesis</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
+  <header>
+    <div class="brand">
+      <span class="brand-mark">MFS 5</span>
+      <span class="brand-sub">Motion Fluidity Synthesis &middot; 3D Animation Enhancer</span>
+    </div>
+    <div class="header-hint">Space = play/pause &middot; C = bandingkan A/B</div>
+  </header>
 
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
+  <div class="workspace">
+    <aside class="sidebar">
 
-    header {
-      background: rgba(30, 41, 59, 0.9);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid var(--border);
-      padding: 0.8rem 1.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 20;
-    }
+      <div class="section">
+        <div class="section-title"><span class="step">1</span> Sumber Animasi</div>
+        <div class="dropzone" id="dropzone">
+          <div class="icon">&#128230;</div>
+          <div class="label">Taruh file .GLB / .GLTF</div>
+          <div class="sub">atau klik untuk pilih file</div>
+          <input type="file" id="file-input" accept=".gltf,.glb,model/gltf-binary,model/gltf+json">
+        </div>
+        <button id="btn-demo">&#127918; Muat Demo (animasi sengaja patah)</button>
+        <select id="clip-select" style="display:none"></select>
+      </div>
 
-    .logo {
-      font-size: 1.2rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
+      <div class="section">
+        <div class="section-title"><span class="step">2</span> Mode Kualitas</div>
+        <div class="preset-grid" id="preset-grid"></div>
+      </div>
 
-    .main-container { display: flex; flex: 1; height: calc(100vh - 60px); position: relative; }
+      <div class="section">
+        <div class="section-title"><span class="step">3</span> Parameter</div>
 
-    .sidebar {
-      width: 330px;
-      background: var(--card-bg);
-      border-right: 1px solid var(--border);
-      padding: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-      overflow-y: auto;
-      z-index: 10;
-    }
+        <div class="control">
+          <div class="control-head"><span>Target frame rate</span><span class="val" id="val-fps">60 fps</span></div>
+          <input type="range" id="opt-fps" min="12" max="240" step="1" value="60">
+          <div class="control-note">Kerapatan sample hasil rekonstruksi kurva.</div>
+        </div>
 
-    .panel-group { display: flex; flex-direction: column; gap: 0.6rem; }
-    .panel-title {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      font-weight: 700;
-    }
+        <div class="control">
+          <div class="control-head"><span>Smoothing</span><span class="val" id="val-smooth">45%</span></div>
+          <input type="range" id="opt-smooth" min="0" max="100" step="1" value="45">
+          <div class="control-note">Filter bilateral: buang jitter, pertahankan snap.</div>
+        </div>
 
-    .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: 8px;
-      padding: 1.2rem 1rem;
-      text-align: center;
-      cursor: pointer;
-      background: rgba(15, 23, 42, 0.5);
-    }
+        <div class="control">
+          <div class="control-head"><span>Follow-through</span><span class="val" id="val-follow">20%</span></div>
+          <input type="range" id="opt-follow" min="0" max="100" step="1" value="20">
+          <div class="control-note">Overshoot &amp; cushion organik lewat dinamika orde dua.</div>
+        </div>
 
-    .upload-zone:hover { border-color: var(--accent-blue); background: rgba(59, 130, 246, 0.1); }
-    .upload-zone input { display: none; }
+        <div class="control">
+          <div class="control-head"><span>Contact lock</span><span class="val" id="val-contact">50%</span></div>
+          <input type="range" id="opt-contact" min="0" max="100" step="1" value="50">
+          <div class="control-note">Jaga pose hold &amp; kontak kaki supaya tidak meluncur.</div>
+        </div>
 
-    .control-item { display: flex; flex-direction: column; gap: 0.3rem; }
-    .control-header { display: flex; justify-content: space-between; font-size: 0.85rem; }
-    .control-value { color: var(--accent-cyan); font-weight: 600; }
+        <div class="control">
+          <div class="control-head"><span>Keyframe reduction</span><span class="val" id="val-reduce">12%</span></div>
+          <input type="range" id="opt-reduce" min="0" max="100" step="1" value="12">
+          <div class="control-note">Menukar kehalusan dengan ukuran file. Naikkan hanya kalau file terlalu besar.</div>
+        </div>
 
-    input[type="range"] { width: 100%; accent-color: var(--accent-blue); background: #0f172a; height: 6px; border-radius: 3px; }
+        <label class="toggle-row"><span>Klip looping (pre-roll pegas)</span><input type="checkbox" id="opt-loop" checked></label>
+        <label class="toggle-row"><span>Tampilkan motion trail</span><input type="checkbox" id="opt-trail"></label>
+      </div>
 
-    select, button {
-      background: #0f172a;
-      border: 1px solid var(--border);
-      color: var(--text-main);
-      padding: 0.6rem 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-    }
+      <div class="section">
+        <button class="btn-run" id="btn-run" disabled>&#9889; Enhance Animation</button>
+        <button class="btn-reset" id="btn-reset" disabled>Kembalikan ke original</button>
+      </div>
 
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent-blue), #2563eb);
-      border: none;
-      font-weight: 600;
-      color: #fff;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
+      <div class="section">
+        <div class="section-title"><span class="step">4</span> Export</div>
+        <button class="btn-export" id="btn-export-glb" disabled>&#128190; Export .GLB</button>
+        <button class="btn-export alt" id="btn-export-json" disabled>&#128196; Export klip aktif (.JSON)</button>
+        <div class="control-note" id="export-note">Export memakai klip yang sedang ditampilkan.</div>
+      </div>
 
-    .btn-success {
-      background: linear-gradient(135deg, var(--accent-green), #059669);
-      border: none;
-      font-weight: 600;
-      color: #fff;
-    }
+    </aside>
 
-    .btn-purple {
-      background: linear-gradient(135deg, var(--accent-purple), #6d28d9);
-      border: none;
-      font-weight: 600;
-      color: #fff;
-    }
+    <div class="viewport-wrap">
+      <div class="viewport">
+        <div id="canvas-host"></div>
 
-    .btn-primary:hover, .btn-success:hover, .btn-purple:hover { opacity: 0.9; transform: translateY(-1px); }
+        <div class="ab-switch">
+          <button id="btn-view-original" class="active">Original</button>
+          <button id="btn-view-enhanced" class="enhanced" disabled>Enhanced</button>
+        </div>
 
-    .viewport-container { flex: 1; display: flex; flex-direction: column; position: relative; }
-    .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); }
-    #canvas-container { width: 100%; height: 100%; }
+        <div class="stats-card" id="stats-card">
+          <h4>Laporan Sintesis</h4>
+          <div class="stat-row hero"><span>Jitter</span><span id="st-jitter">&mdash;</span></div>
+          <div class="stat-row" id="row-recon" style="display:none"><span>&hookrightarrow; kurva mentah</span><span id="st-recon">&mdash;</span></div>
+          <div class="stat-row"><span>Sample rate</span><span id="st-fps">&mdash;</span></div>
+          <div class="stat-row"><span>Keyframe</span><span id="st-keys">&mdash;</span></div>
+          <div class="stat-row"><span>Track diproses</span><span id="st-tracks">&mdash;</span></div>
+          <div class="stat-row" id="row-flips"><span>Rotasi flip diperbaiki</span><span id="st-flips">&mdash;</span></div>
+          <div class="stat-row"><span>Bobot kurva</span><span id="st-weight">&mdash;</span></div>
+          <div class="stat-row"><span>Waktu proses</span><span id="st-time">&mdash;</span></div>
+        </div>
 
-    .badge-status {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      padding: 0.5rem 1rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: all 0.3s ease;
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-    }
+        <div class="legend" id="legend">
+          <div class="row"><span class="swatch" style="background:#fb7185"></span> Jalur original</div>
+          <div class="row"><span class="swatch" style="background:#22d3ee"></span> Jalur enhanced</div>
+        </div>
 
-    .badge-status.enhanced {
-      background: rgba(139, 92, 246, 0.2);
-      border: 1px solid var(--accent-purple);
-      color: #c084fc;
-      box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
-    }
+        <div class="overlay" id="overlay">
+          <div class="spinner"></div>
+          <div class="overlay-text" id="overlay-text">Memproses&hellip;</div>
+          <div class="overlay-sub" id="overlay-sub"></div>
+        </div>
+      </div>
 
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
-    .badge-status.enhanced .dot {
-      background: var(--accent-purple);
-      box-shadow: 0 0 8px var(--accent-purple);
-      animation: pulse 1.5s infinite;
-    }
+      <div class="transport">
+        <button class="icon-btn" id="btn-play" title="Play / Pause (Space)">&#10073;&#10073;</button>
+        <button class="icon-btn" id="btn-stop" title="Kembali ke awal">&#9209;</button>
+        <input type="range" id="timeline" min="0" max="1000" step="1" value="0">
+        <select id="speed-select" title="Kecepatan playback">
+          <option value="0.1">0.1&times;</option>
+          <option value="0.25">0.25&times;</option>
+          <option value="0.5">0.5&times;</option>
+          <option value="1" selected>1&times;</option>
+          <option value="2">2&times;</option>
+        </select>
+        <div class="time-display" id="time-display">0.00s / 0.00s</div>
+      </div>
+    </div>
+  </div>
 
-    @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-
-    .editor-controls {
-      background: var(--card-bg);
-      border-top: 1px solid var(--border);
-      padding: 0.8rem 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .timeline-bar { display: flex; align-items: center; gap: 1rem; }
-    .timeline-slider { flex: 1; }
-
-    .loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(8px);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 1rem;
-      z-index: 30;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s;
-    }
-
-    .loading-overlay.active { opacity: 1; pointer-events: all; }
-    .spinner {
-      width: 44px; height: 44px;
-      border: 4px solid var(--border);
-      border-top-color: var(--accent-cyan);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+  <div class="toast" id="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
-</head>
-<body>
-
-  <header>
-    <div class="logo">✨ AI Motion Fluidizer & GLB Exporter</div>
-  </header>
-
-  <div class="main-container">
-    <div class="sidebar">
-      <div class="panel-group">
-        <div class="panel-title">1. Import Model 3D</div>
-        <div class="upload-zone" id="dropzone">
-          <div style="font-size: 1.5rem;">📦</div>
-          <div style="font-size: 0.85rem; font-weight: 600;">Drop file .GLTF / .GLB</div>
-          <input type="file" id="file-input" accept=".gltf,.glb">
-        </div>
-      </div>
-
-      <div class="panel-group">
-        <div class="panel-title">2. Parameter AI Motion</div>
-        <div class="control-item">
-          <div class="control-header">
-            <span>Smoothing Level</span>
-            <span class="control-value" id="val-smooth">60%</span>
-          </div>
-          <input type="range" id="slider-smooth" min="0" max="100" value="60">
-        </div>
-
-        <div class="control-item">
-          <div class="control-header"><span>Easing Style</span></div>
-          <select id="select-easing">
-            <option value="cubic">AI Fluid Cubic (Ultra Smooth)</option>
-            <option value="elastic">Organic Bounce / Spring</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="panel-group">
-        <button class="btn-primary" id="btn-process">⚡ Enhance Animation</button>
-      </div>
-
-      <div class="panel-group">
-        <div class="panel-title">3. Export Result</div>
-        <button class="btn-success" id="btn-export">💾 Export Full .GLB</button>
-        <button class="btn-purple" id="btn-export-json" style="margin-top: 4px;">📄 Export Animasi Only (.JSON)</button>
-      </div>
-
-      <div class="panel-group" style="margin-top: auto;">
-        <div class="panel-title">Model Metadata</div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;">
-          <div>Source: <span id="info-status" style="color: var(--text-main);">Demo Mesh</span></div>
-          <div>Bones: <span id="info-bones" style="color: var(--text-main);">-</span></div>
-          <div>Original Keyframes: <span id="info-keys" style="color: var(--text-main);">-</span></div>
-          <div>Enhanced Keyframes: <span id="info-enhanced-keys" style="color: var(--accent-cyan);">-</span></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="viewport-container">
-      <div class="viewport">
-        <div class="badge-status" id="badge-status">
-          <div class="dot"></div> <span id="badge-text">Original Motion</span>
-        </div>
-        
-        <div id="canvas-container"></div>
-
-        <div class="loading-overlay" id="loading">
-          <div class="spinner"></div>
-          <div style="font-weight: 600;" id="loading-text">Processing Model...</div>
-        </div>
-      </div>
-
-      <div class="editor-controls">
-        <div class="timeline-bar">
-          <button id="btn-play">⏸ Pause</button>
-          <input type="range" id="timeline-slider" class="timeline-slider" min="0" max="100" value="0" step="0.1">
-          <div style="font-size: 0.85rem; font-family: monospace;" id="time-display">0.00s / 0.00s</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let scene, camera, renderer, controls, mixer, clock;
-    let rawGltfData = null; 
-    let currentGltfScene = null;
-    let activeClip = null;
-    let activeAction = null;
-    let isPlaying = true;
-    let isUserSeeking = false;
-    let originalFileName = 'model';
-
-    function initScene() {
-      const container = document.getElementById('canvas-container');
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0f172a);
-
-      camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-      camera.position.set(0, 2, 5);
-
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(container.clientWidth, container.clientHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      container.appendChild(renderer.domElement);
-
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-      scene.add(ambientLight);
-
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-      dirLight.position.set(5, 10, 7);
-      scene.add(dirLight);
-
-      const grid = new THREE.GridHelper(20, 20, 0x3b82f6, 0x334155);
-      grid.position.y = 0;
-      scene.add(grid);
-
-      clock = new THREE.Clock();
-      createDemoObject();
-
-      window.addEventListener('resize', onWindowResize);
-      animate();
-    }
-
-    function createDemoObject() {
-      const geometry = new THREE.BoxGeometry(1, 1, 1);
-      const material = new THREE.MeshStandardMaterial({ color: 0x06b6d4 });
-      const cube = new THREE.Mesh(geometry, material);
-      
-      const demoGroup = new THREE.Group();
-      demoGroup.add(cube);
-      scene.add(demoGroup);
-      currentGltfScene = demoGroup;
-
-      const times = [0, 0.6, 1.2];
-      const values = [0,0.5,0,  0,1.8,0,  0,0.5,0];
-      const track = new THREE.VectorKeyframeTrack('.position', times, values);
-      activeClip = new THREE.AnimationClip('demo_clip', 1.2, [track]);
-
-      mixer = new THREE.AnimationMixer(currentGltfScene);
-      activeAction = mixer.clipAction(activeClip);
-      activeAction.play();
-    }
-
-    function fitCameraToScene(model) {
-      const box = new THREE.Box3().setFromObject(model);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
-
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const fov = camera.fov * (Math.PI / 180);
-      let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 2.5;
-
-      camera.position.set(center.x, center.y + (size.y * 0.2), center.z + cameraZ);
-      controls.target.copy(center);
-      controls.update();
-    }
-
-    function applyAISmoothing(clip, smoothFactor, easingType) {
-      const newTracks = [];
-      const density = Math.floor(1 + (smoothFactor / 8));
-
-      clip.tracks.forEach(track => {
-        const times = track.times;
-        const values = track.values;
-        const stride = track.getValueSize();
-
-        let newTimes = [];
-        let newValues = [];
-
-        for (let i = 0; i < times.length - 1; i++) {
-          const t0 = times[i];
-          const t1 = times[i + 1];
-
-          for (let step = 0; step < density; step++) {
-            const alpha = step / density;
-            let easedAlpha = alpha;
-            if (easingType === 'cubic') {
-              easedAlpha = alpha < 0.5 ? 4 * alpha * alpha * alpha : 1 - Math.pow(-2 * alpha + 2, 3) / 2;
-            }
-
-            newTimes.push(t0 + (t1 - t0) * alpha);
-
-            for (let j = 0; j < stride; j++) {
-              const v0 = values[i * stride + j];
-              const v1 = values[(i + 1) * stride + j];
-              newValues.push(v0 + (v1 - v0) * easedAlpha);
-            }
-          }
-        }
-
-        newTimes.push(times[times.length - 1]);
-        for (let j = 0; j < stride; j++) newValues.push(values[(times.length - 1) * stride + j]);
-
-        let TrackType = track instanceof THREE.QuaternionKeyframeTrack ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack;
-        newTracks.push(new TrackType(track.name, newTimes, newValues));
-      });
-
-      return new THREE.AnimationClip(clip.name || 'enhanced_clip', clip.duration, newTracks);
-    }
-
-    // --- FIX GLB EXPORT (TETAP MENJAGA HIERARKI BONES) ---
-    function exportToGLB() {
-      if (!currentGltfScene) {
-        alert('Tidak ada model 3D aktif.');
-        return;
-      }
-
-      const loadingOverlay = document.getElementById('loading');
-      const loadingText = document.getElementById('loading-text');
-
-      loadingText.innerText = 'Restoring Bones & Exporting GLB...';
-      loadingOverlay.classList.add('active');
-
-      // Pastikan Mixer Direset ke Frame 0 sebelum dipack agar tidak terdistorsi
-      if (mixer) mixer.setTime(0);
-
-      // Paksa update seluruh matriks Skeleton & SkinnedMesh
-      currentGltfScene.traverse((child) => {
-        if (child.isSkinnedMesh) {
-          child.skeleton.update();
-        }
-        child.updateMatrix();
-        child.updateMatrixWorld(true, true);
-      });
-
-      const exporter = new THREE.GLTFExporter();
-      const options = {
-        binary: true,
-        animations: activeClip ? [activeClip] : [],
-        includeCustomExtensions: true
-      };
-
-      setTimeout(() => {
-        try {
-          exporter.parse(
-            currentGltfScene,
-            function (glbBuffer) {
-              loadingOverlay.classList.remove('active');
-              
-              const blob = new Blob([glbBuffer], { type: 'application/octet-stream' });
-              const link = document.createElement('a');
-              link.style.display = 'none';
-              document.body.appendChild(link);
-              
-              link.href = URL.createObjectURL(blob);
-              link.download = `${originalFileName}_enhanced.glb`;
-              link.click();
-              
-              document.body.removeChild(link);
-            },
-            function (error) {
-              console.error('GLTFExporter Error:', error);
-              loadingOverlay.classList.remove('active');
-              alert('Gagal mengeksport file GLB.');
-            },
-            options
-          );
-        } catch (err) {
-          console.error(err);
-          loadingOverlay.classList.remove('active');
-        }
-      }, 300);
-    }
-
-    // --- EXPORT ANIMATION-ONLY JSON ---
-    function exportAnimationJSON() {
-      if (!activeClip) {
-        alert('Tidak ada clip animasi yang siap dieksport.');
-        return;
-      }
-
-      const animJSON = THREE.AnimationClip.toJSON(activeClip);
-      const blob = new Blob([JSON.stringify(animJSON, null, 2)], { type: 'application/json' });
-      
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${originalFileName}_animation_enhanced.json`;
-      link.click();
-    }
-
-    function load3DFile(file) {
-      originalFileName = file.name.replace(/\.[^/.]+$/, "");
-      const url = URL.createObjectURL(file);
-      const loader = new THREE.GLTFLoader();
-
-      document.getElementById('loading-text').innerText = 'Memuat Model 3D...';
-      document.getElementById('loading').classList.add('active');
-
-      loader.load(url, (gltf) => {
-        rawGltfData = gltf;
-        if (currentGltfScene) scene.remove(currentGltfScene);
-
-        currentGltfScene = gltf.scene;
-        scene.add(currentGltfScene);
-
-        // Jangan ubah position model internal secara paksa, posisikan Kamera saja
-        fitCameraToScene(currentGltfScene);
-        updateBadgeStatus(false);
-
-        if (gltf.animations && gltf.animations.length > 0) {
-          mixer = new THREE.AnimationMixer(currentGltfScene);
-          activeClip = gltf.animations[0];
-          activeAction = mixer.clipAction(activeClip);
-          activeAction.play();
-
-          document.getElementById('info-status').innerText = file.name;
-          document.getElementById('info-keys').innerText = activeClip.tracks[0]?.times.length || 0;
-        }
-
-        document.getElementById('loading').classList.remove('active');
-      }, undefined, (err) => {
-        console.error(err);
-        alert('Gagal membaca file 3D.');
-        document.getElementById('loading').classList.remove('active');
-      });
-    }
-
-    function updateBadgeStatus(isEnhanced) {
-      const badge = document.getElementById('badge-status');
-      const text = document.getElementById('badge-text');
-
-      if (isEnhanced) {
-        badge.classList.add('enhanced');
-        text.innerText = 'AI Enhanced Motion Active';
-      } else {
-        badge.classList.remove('enhanced');
-        text.innerText = 'Original Motion';
-      }
-    }
-
-    // Event Handlers
-    document.getElementById('dropzone').addEventListener('click', () => document.getElementById('file-input').click());
-    document.getElementById('file-input').addEventListener('change', (e) => {
-      if (e.target.files.length) load3DFile(e.target.files[0]);
-    });
-
-    document.getElementById('btn-process').addEventListener('click', () => {
-      if (!activeClip || !mixer) return;
-
-      document.getElementById('loading-text').innerText = 'Proses Smoothing AI & Re-Keyframe...';
-      document.getElementById('loading').classList.add('active');
-
-      setTimeout(() => {
-        const smoothVal = parseInt(document.getElementById('slider-smooth').value);
-        const easing = document.getElementById('select-easing').value;
-
-        activeClip = applyAISmoothing(activeClip, smoothVal, easing);
-
-        activeAction.stop();
-        activeAction = mixer.clipAction(activeClip);
-        activeAction.play();
-
-        updateBadgeStatus(true);
-        document.getElementById('info-enhanced-keys').innerText = `${activeClip.tracks[0].times.length} frames`;
-
-        document.getElementById('loading').classList.remove('active');
-      }, 400);
-    });
-
-    document.getElementById('btn-export').addEventListener('click', exportToGLB);
-    document.getElementById('btn-export-json').addEventListener('click', exportAnimationJSON);
-
-    document.getElementById('slider-smooth').addEventListener('input', (e) => {
-      document.getElementById('val-smooth').innerText = `${e.target.value}%`;
-    });
-
-    function onWindowResize() {
-      const container = document.getElementById('canvas-container');
-      camera.aspect = container.clientWidth / container.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-      const delta = clock.getDelta();
-      if (mixer && activeClip && isPlaying && !isUserSeeking) {
-        mixer.update(delta);
-        const time = mixer.time % activeClip.duration;
-        document.getElementById('timeline-slider').value = (time / activeClip.duration) * 100;
-        document.getElementById('time-display').innerText = `${time.toFixed(2)}s / ${activeClip.duration.toFixed(2)}s`;
-      }
-      controls.update();
-      renderer.render(scene, camera);
-    }
-
-    window.onload = initScene;
-  </script>
+  <script src="js/fluidizer.js"></script>
+  <script src="js/three-adapter.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
