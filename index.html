@@ -12,7 +12,6 @@
       --accent-cyan: #06b6d4;
       --accent-green: #10b981;
       --accent-purple: #8b5cf6;
-      --accent-red: #ef4444;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --border: #334155;
@@ -194,7 +193,6 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
-  <!-- Load Three.js Components -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -283,6 +281,7 @@
   <script>
     let scene, camera, renderer, controls, mixer, clock;
     let currentGltfScene = null;
+    let rawLoadedModel = null;
     let activeClip = null;
     let activeAction = null;
     let isPlaying = true;
@@ -305,10 +304,10 @@
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
 
-      const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
       scene.add(ambientLight);
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
       dirLight.position.set(5, 10, 7);
       scene.add(dirLight);
 
@@ -404,58 +403,71 @@
       return new THREE.AnimationClip(clip.name || 'enhanced_clip', clip.duration, newTracks);
     }
 
-    // --- FIX GLB EXPORTER ENGINE ---
+    // --- FIX COMPLETE: GLB EXPORTER WITH MESH RECOVERY ---
     function exportToGLB() {
       if (!currentGltfScene) {
         alert('Tidak ada model 3D yang aktif untuk dieksport.');
         return;
       }
 
-      const exporter = new THREE.GLTFExporter();
       const loadingOverlay = document.getElementById('loading');
       const loadingText = document.getElementById('loading-text');
 
-      loadingText.innerText = 'Mengemas Model & Keyframe ke .GLB...';
+      loadingText.innerText = 'Updating World Matrix & Packing Mesh 3D...';
       loadingOverlay.classList.add('active');
 
-      // Opsi Exporter Khusus untuk Mencegah Error
+      // Update seluruh hierarki matriks sebelum dipack ke GLB
+      currentGltfScene.updateMatrixWorld(true, true);
+
+      // Pastikan semua SkinnedMesh / Geometry terlihat dan valid
+      currentGltfScene.traverse((child) => {
+        if (child.isMesh) {
+          child.frustumCulled = false;
+          if (child.material) {
+            child.material.side = THREE.DoubleSide; // Mencegah culling jika normal terbalik
+          }
+        }
+      });
+
+      const exporter = new THREE.GLTFExporter();
       const options = {
         binary: true,
         animations: activeClip ? [activeClip] : [],
-        embedImages: true,
-        truncateDrawRange: true
+        includeCustomExtensions: true,
+        embedImages: true
       };
 
-      try {
-        exporter.parse(
-          currentGltfScene,
-          function (glbBuffer) {
-            loadingOverlay.classList.remove('active');
-            
-            // Konversi ArrayBuffer ke File Download
-            const blob = new Blob([glbBuffer], { type: 'application/octet-stream' });
-            const link = document.createElement('a');
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            
-            link.href = URL.createObjectURL(blob);
-            link.download = `${originalFileName}_enhanced.glb`;
-            link.click();
-            
-            document.body.removeChild(link);
-          },
-          function (error) {
-            console.error('GLTFExporter Error:', error);
-            loadingOverlay.classList.remove('active');
-            alert('Gagal mengeksport GLB. Pastikan browser tidak memblokir download.');
-          },
-          options
-        );
-      } catch (err) {
-        console.error('Export exception:', err);
-        loadingOverlay.classList.remove('active');
-        alert('Terjadi kesalahan teknis saat memproses file GLB.');
-      }
+      setTimeout(() => {
+        try {
+          exporter.parse(
+            currentGltfScene,
+            function (glbBuffer) {
+              loadingOverlay.classList.remove('active');
+              
+              const blob = new Blob([glbBuffer], { type: 'application/octet-stream' });
+              const link = document.createElement('a');
+              link.style.display = 'none';
+              document.body.appendChild(link);
+              
+              link.href = URL.createObjectURL(blob);
+              link.download = `${originalFileName}_enhanced.glb`;
+              link.click();
+              
+              document.body.removeChild(link);
+            },
+            function (error) {
+              console.error('GLTFExporter Error:', error);
+              loadingOverlay.classList.remove('active');
+              alert('Gagal mengemas GLB.');
+            },
+            options
+          );
+        } catch (err) {
+          console.error('Export exception:', err);
+          loadingOverlay.classList.remove('active');
+          alert('Terjadi kesalahan teknis saat mengeksport file 3D.');
+        }
+      }, 300);
     }
 
     function load3DFile(file) {
@@ -488,7 +500,7 @@
         document.getElementById('loading').classList.remove('active');
       }, undefined, (err) => {
         console.error(err);
-        alert('Gagal membaca file 3D. Pastikan format file .gltf / .glb valid.');
+        alert('Gagal membaca file 3D.');
         document.getElementById('loading').classList.remove('active');
       });
     }
@@ -535,7 +547,6 @@
       }, 400);
     });
 
-    // Binding Tombol Export
     document.getElementById('btn-export').addEventListener('click', exportToGLB);
 
     document.getElementById('slider-smooth').addEventListener('input', (e) => {
