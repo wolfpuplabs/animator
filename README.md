@@ -31,6 +31,7 @@ Animasi terasa patah biasanya karena beberapa hal, dan semuanya ditangani:
 | Rotasi tiba-tiba melintir sejauh 360° | Quaternion beda hemisphere antar-key | Penyelarasan hemisphere |
 | Kaki meluncur, pose hold melayang | Smoothing diterapkan rata ke seluruh kurva | Motion mask + contact lock |
 | Model berisi puluhan animasi, susah dipilah | — | Panel daftar animasi dengan pencarian |
+| Susah melihat apa yang berubah | — | Bayangan original, motion trail, tombol A/B |
 
 ---
 
@@ -90,6 +91,25 @@ yang sudah diproses sebelumnya tetap disimpan, jadi bisa dikerjakan
 bertahap dengan setelan berbeda per klip. Export selalu menyertakan
 **semua** klip — yang belum diproses ikut sebagai versi original, supaya
 tidak ada animasi yang hilang diam-diam.
+
+### Membandingkan original dan enhanced
+
+Perbedaan kefluidan sering halus kalau hanya dilihat sekilas, jadi ada tiga
+cara melihatnya:
+
+- **Tombol A/B** (atau tekan `C`) — bertukar antara kedua versi tanpa
+  mengubah posisi waktu, jadi pose yang dibandingkan benar-benar sama.
+- **Bayangan original** — animasi original diputar sebagai siluet tembus
+  pandang di tempat yang sama, tersinkron per frame. Siluet itu hanya
+  terlihat di bagian yang menyembul keluar dari model utama, jadi persis
+  di situlah letak perbedaannya. Jeda lalu geser timeline untuk memeriksa
+  frame per frame.
+- **Motion trail** — jalur gerak digambar sebagai garis: merah untuk
+  original, biru untuk hasil enhance. Paling jelas untuk melihat sudut
+  patah yang hilang.
+
+Keduanya yang terakhir dinyalakan lewat centang di panel Parameter, dan
+baru aktif setelah klip yang sedang dipilih diproses.
 
 ### Motion mask
 
@@ -195,6 +215,18 @@ jadi GLB, memuatnya lewat file input aplikasi, meng-enhance, mengekspor
 ulang, lalu memuat hasilnya kembali — memastikan skin dan hierarki bone
 selamat melewati seluruh perjalanan.
 
+`tests/browser/framing.test.js` memuat rig yang bone-nya membawa vertex
+keluar dari kotak bind pose, lalu mengukur dari piksel yang benar-benar
+dirender: model harus utuh, kurang lebih di tengah, dan mengisi frame dengan
+proporsi wajar. Ambangnya sengaja ketat — dengan bug bounding box yang lama,
+model mengisi 77% tinggi frame alih-alih 38%, dan ambang longgar akan lolos
+untuk dua-duanya.
+
+`tests/browser/compare.test.js` membandingkan screenshot untuk memastikan
+tombol A/B benar-benar mengubah pose yang dirender, bayangan original
+sungguh tergambar dan tetap sinkron saat di-scrub, bukan sekadar ada
+tombolnya.
+
 `tests/browser/multiclip.test.js` memakai model berisi banyak animasi dan
 memeriksa hal-hal yang gampang rusak diam-diam: statistik per-klip tidak
 tertukar, memproses satu klip tidak membatalkan hasil klip lain, dan
@@ -211,10 +243,12 @@ orang apa adanya.
 - **`.gltf` dengan file terpisah tidak bisa dimuat.** Berkas dibaca lewat
   object URL, jadi referensi ke `.bin` dan tekstur di sebelahnya tidak
   ter-resolve. Pakai `.glb`.
-- **Framing kamera untuk skinned mesh hanya perkiraan.** three r128 tidak
-  menghitung deformasi skinning di `Box3.setFromObject`, jadi kotak batasnya
-  memakai bounding box geometri. Tetap jauh lebih baik daripada memakai satu
-  pose diam, tapi model yang deformasinya ekstrem bisa agak longgar.
+- **Framing kamera memakai vertex contoh.** Untuk skinned mesh, posisi
+  vertex dihitung lewat `boneTransform` di 16 titik waktu — `Box3.setFromObject`
+  tidak bisa dipakai karena hanya melihat bind pose dan bisa meleset
+  berkali lipat. Vertexnya disubsample (maksimum 512 per mesh) agar tetap
+  cepat, jadi titik terjauh bisa terlewat sedikit; kotaknya dilonggarkan 2%
+  untuk menutupi itu.
 - **Alat ini tidak mengarang gerakan.** Kalau gerakan aslinya secara
   fundamental salah — timing meleset, pose tidak terbaca — ini tidak akan
   memperbaikinya. Yang dikerjakan adalah kefluidan, bukan penyutradaraan.

@@ -20,6 +20,7 @@
     scrubbing: false,
     fileName: 'model',
     trailGroup: null,
+    ghost: { root: null, mixer: null, action: null, material: null },
     presetName: 'balanced',
     clipFilter: ''
   };
@@ -111,23 +112,87 @@
       syncTransport();
     }
 
+    // Bayangan selalu mengikuti waktu model utama, termasuk saat di-scrub
+    // atau dijeda — kalau dibiarkan jalan sendiri keduanya akan melenceng
+    // dan perbandingannya jadi tidak berarti.
+    if (state.ghost.mixer && state.action) {
+      state.ghost.mixer.setTime(state.action.time);
+    }
+
     state.controls.update();
     state.renderer.render(state.scene, state.camera);
+  }
+
+  var BOUND_TIME_SAMPLES = 16;
+  var BOUND_VERTEX_BUDGET = 512;
+
+  /**
+   * Kumpulkan mesh yang perlu diukur, sekalian pilih vertex contoh untuk
+   * yang ber-skeleton. Vertex-nya disubsample karena mengukur seluruh
+   * vertex di setiap titik waktu terlalu mahal untuk model besar.
+   */
+  function collectBoundsTargets(object) {
+    var skinned = [], plain = [];
+    object.traverse(function (child) {
+      if (!child.geometry) return;
+      var attrs = child.geometry.attributes;
+      if (child.isSkinnedMesh && attrs && attrs.skinIndex && typeof child.boneTransform === 'function') {
+        var count = attrs.position.count;
+        var stride = Math.max(1, Math.ceil(count / BOUND_VERTEX_BUDGET));
+        var indices = [];
+        for (var i = 0; i < count; i += stride) indices.push(i);
+        if (count > 0 && indices[indices.length - 1] !== count - 1) indices.push(count - 1);
+        skinned.push({ mesh: child, indices: indices, subsampled: stride > 1 });
+      } else if (child.isMesh) {
+        if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+        plain.push(child);
+      }
+    });
+    return { skinned: skinned, plain: plain };
   }
 
   /**
    * Kotak batas sepanjang ANIMASI, bukan cuma pose diam.
    *
-   * Memakai pose awal saja bikin kamera terlalu dekat: model yang
-   * melompat atau berjalan langsung keluar frame begitu diputar.
-   * (Untuk skinned mesh angkanya perkiraan — three r128 tidak menghitung
-   * deformasi skinning di setFromObject — tapi jauh lebih baik daripada
-   * satu pose.)
+   * Dua hal yang gampang salah di sini:
+   *
+   * 1. Memakai pose awal saja bikin kamera terlalu dekat — model yang
+   *    melompat atau berjalan langsung keluar frame begitu diputar.
+   * 2. Box3.setFromObject memakai bounding box geometri di BIND POSE lalu
+   *    mengalikannya dengan matriks dunia mesh. Untuk skinned mesh itu
+   *    tidak melihat transformasi tulang sama sekali, jadi ukurannya bisa
+   *    meleset berkali lipat — akibatnya model muncul raksasa dan melenceng
+   *    dari tengah. Karena itu vertex-nya dihitung lewat boneTransform,
+   *    yaitu posisi setelah skinning.
    */
   function animatedBounds(object, clip) {
     var box = new THREE.Box3();
+    var targets = collectBoundsTargets(object);
+    var v = new THREE.Vector3();
+    var probe = new THREE.Box3();
+    var subsampled = false;
+
+    function expandAtCurrentPose() {
+      object.updateMatrixWorld(true);
+      targets.skinned.forEach(function (entry) {
+        entry.mesh.skeleton.update();
+        if (entry.subsampled) subsampled = true;
+        for (var i = 0; i < entry.indices.length; i++) {
+          entry.mesh.boneTransform(entry.indices[i], v);
+          v.applyMatrix4(entry.mesh.matrixWorld);
+          box.expandByPoint(v);
+        }
+      });
+      targets.plain.forEach(function (mesh) {
+        if (!mesh.geometry.boundingBox) return;
+        probe.copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrixWorld);
+        box.union(probe);
+      });
+    }
+
     if (!clip || !(clip.duration > 0)) {
-      box.setFromObject(object);
+      expandAtCurrentPose();
+      if (box.isEmpty()) box.setFromObject(object);
       return box;
     }
 
@@ -135,18 +200,22 @@
     var action = mixer.clipAction(clip);
     action.play();
 
-    var probe = new THREE.Box3();
-    var steps = 24;
-    for (var i = 0; i < steps; i++) {
-      mixer.setTime(clip.duration * i / (steps - 1));
-      object.updateMatrixWorld(true);
-      probe.setFromObject(object);
-      if (!probe.isEmpty()) box.union(probe);
+    for (var i = 0; i < BOUND_TIME_SAMPLES; i++) {
+      mixer.setTime(clip.duration * i / (BOUND_TIME_SAMPLES - 1));
+      expandAtCurrentPose();
     }
 
     action.stop();
     mixer.setTime(0);
     object.updateMatrixWorld(true);
+
+    // Vertex disubsample, jadi titik terjauh bisa terlewat. Beri sedikit
+    // kelonggaran supaya model tidak menyentuh tepi frame.
+    if (!box.isEmpty() && subsampled) {
+      var size = box.getSize(new THREE.Vector3());
+      box.expandByVector(size.multiplyScalar(0.02));
+    }
+    if (box.isEmpty()) box.setFromObject(object);
     return box;
   }
 
@@ -254,6 +323,10 @@
   }
 
   function setModel(root, clips, label) {
+    // Bayangan memegang rujukan ke geometri model lama, jadi harus dilepas
+    // sebelum model itu dibuang.
+    clearGhost();
+    $('opt-ghost').checked = false;
     if (state.root) {
       state.scene.remove(state.root);
       disposeObject(state.root);
@@ -353,6 +426,7 @@
     state.mixer.setTime(t);
     syncTransport();
     rebuildTrails();
+    buildGhost();
   }
 
   var FILTER_THRESHOLD = 8; // di bawah ini daftar sudah cukup pendek untuk dipindai mata
@@ -574,8 +648,8 @@
       state.lastElapsed = elapsed;
       state.view = 'enhanced';
 
-      rebindAction(true);
       refreshButtons();
+      rebindAction(true);
       renderStats();
       renderClipList();
       hideOverlay();
@@ -587,6 +661,8 @@
   }
 
   function resetEnhance() {
+    clearGhost();
+    $('opt-ghost').checked = false;
     state.enhancedClips = null;
     state.clipStats = [];
     state.view = 'original';
@@ -677,7 +753,7 @@
   function rebuildTrails() {
     clearTrails();
     var enabled = $('opt-trail').checked;
-    $('legend').classList.toggle('visible', enabled && !!enhancedFor(state.clipIndex));
+    updateLegend();
     if (!enabled || !state.root) return;
 
     var original = state.originalClips[state.clipIndex];
@@ -698,6 +774,86 @@
     // sampling di atas memakai mixer sementara pada root yang sama,
     // jadi kembalikan pose ke waktu playback saat ini
     if (state.mixer && state.action) state.mixer.setTime(state.action.time);
+  }
+
+  /* ================================================================== *
+   * Bayangan original
+   * ================================================================== *
+   * Cara paling langsung melihat apa yang berubah: putar animasi original
+   * sebagai siluet tembus pandang di tempat yang sama. Di mana keduanya
+   * berpisah, di situlah hasil enhance bekerja.
+   */
+
+  function clearGhost() {
+    var g = state.ghost;
+    if (g.mixer) g.mixer.stopAllAction();
+    if (g.root) state.scene.remove(g.root);
+    // PENTING: clone berbagi geometri dengan model asli, jadi jangan
+    // sentuh geometry-nya. Hanya material bayangan yang memang kita buat
+    // sendiri yang boleh dibuang.
+    if (g.material) g.material.dispose();
+    g.root = null; g.mixer = null; g.action = null; g.material = null;
+  }
+
+  function buildGhost() {
+    clearGhost();
+
+    if (!$('opt-ghost').checked || !state.root) return;
+    var original = state.originalClips[state.clipIndex];
+    if (!original || !enhancedFor(state.clipIndex)) return;
+
+    if (!THREE.SkeletonUtils || typeof THREE.SkeletonUtils.clone !== 'function') {
+      toast('Bayangan butuh SkeletonUtils, yang gagal dimuat dari CDN.', true);
+      $('opt-ghost').checked = false;
+      return;
+    }
+
+    var clone = THREE.SkeletonUtils.clone(state.root);
+    var material = new THREE.MeshBasicMaterial({
+      color: 0xfb7185,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+
+    clone.traverse(function (child) {
+      if (child.isMesh || child.isSkinnedMesh) {
+        child.material = material;
+        child.castShadow = false;
+        child.receiveShadow = false;
+        child.renderOrder = 2;
+      }
+    });
+
+    state.scene.add(clone);
+    state.ghost.root = clone;
+    state.ghost.material = material;
+    state.ghost.mixer = new THREE.AnimationMixer(clone);
+    state.ghost.action = state.ghost.mixer.clipAction(original);
+    state.ghost.action.setLoop(THREE.LoopRepeat, Infinity);
+    state.ghost.action.play();
+
+    updateGhostVisibility();
+  }
+
+  /**
+   * Dalam mode Original, model utama sudah memainkan klip yang sama persis
+   * dengan bayangan — menumpuknya hanya menghasilkan siluet ganda yang
+   * membingungkan, jadi bayangan disembunyikan.
+   */
+  function updateGhostVisibility() {
+    if (state.ghost.root) state.ghost.root.visible = (state.view === 'enhanced');
+    updateLegend();
+  }
+
+  function updateLegend() {
+    var trailOn = $('opt-trail').checked && !!enhancedFor(state.clipIndex);
+    var ghostOn = !!state.ghost.root && state.ghost.root.visible;
+    $('legend-trail-original').style.display = trailOn ? '' : 'none';
+    $('legend-trail-enhanced').style.display = trailOn ? '' : 'none';
+    $('legend-ghost').style.display = ghostOn ? '' : 'none';
+    $('legend').classList.toggle('visible', trailOn || ghostOn);
   }
 
   /* ================================================================== *
@@ -812,6 +968,17 @@
     $('btn-export-json').disabled = !activeClip();
     $('btn-view-enhanced').disabled = !hasEnhanced;
 
+    var canGhost = !!enhancedFor(state.clipIndex);
+    var ghostBox = $('opt-ghost');
+    ghostBox.disabled = !canGhost;
+    $('row-ghost').title = canGhost
+      ? 'Tumpuk animasi original sebagai siluet tembus pandang'
+      : 'Jalankan enhance pada klip ini dulu';
+    if (!canGhost && ghostBox.checked) {
+      ghostBox.checked = false;
+      clearGhost();
+    }
+
     $('btn-view-original').classList.toggle('active', state.view === 'original');
     $('btn-view-enhanced').classList.toggle('active', state.view === 'enhanced');
 
@@ -850,6 +1017,7 @@
     rebindAction(true);
     refreshButtons();
     renderStats();
+    updateGhostVisibility();
   }
 
   function buildPresetButtons() {
@@ -933,6 +1101,7 @@
     });
 
     $('opt-trail').addEventListener('change', rebuildTrails);
+    $('opt-ghost').addEventListener('change', buildGhost);
 
     $('btn-run').addEventListener('click', runEnhance);
     $('btn-reset').addEventListener('click', resetEnhance);
@@ -968,10 +1137,26 @@
     });
 
     // --- keyboard
+    // Kolom yang benar-benar menerima ketikan. Menolak SEMUA <input> itu
+    // terlalu luas: setelah mencentang satu checkbox, fokus tetap di sana
+    // dan seluruh pintasan mati sampai pengguna mengklik ke tempat lain.
+    var TEXT_INPUT_TYPES = ['text', 'search', 'number', 'email', 'password', 'url', 'tel'];
+
+    function isTypingTarget(el) {
+      if (!el) return false;
+      var tag = el.tagName;
+      if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      if (el.isContentEditable) return true;
+      return tag === 'INPUT' && TEXT_INPUT_TYPES.indexOf((el.type || '').toLowerCase()) !== -1;
+    }
+
     window.addEventListener('keydown', function (e) {
+      if (isTypingTarget(e.target)) return;
       var tag = (e.target && e.target.tagName) || '';
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (e.code === 'Space') {
+        // Space adalah cara standar mengaktifkan tombol/checkbox yang
+        // sedang fokus — jangan rebut.
+        if (tag === 'BUTTON' || tag === 'INPUT') return;
         e.preventDefault();
         setPlaying(!state.playing);
       } else if (e.key === 'c' || e.key === 'C') {

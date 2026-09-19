@@ -81,6 +81,7 @@
 
         <label class="toggle-row"><span>Klip looping (pre-roll pegas)</span><input type="checkbox" id="opt-loop" checked></label>
         <label class="toggle-row"><span>Tampilkan motion trail</span><input type="checkbox" id="opt-trail"></label>
+        <label class="toggle-row" id="row-ghost"><span>Bayangan original (tumpuk)</span><input type="checkbox" id="opt-ghost" disabled></label>
       </div>
 
       <div class="section">
@@ -119,8 +120,9 @@
         </div>
 
         <div class="legend" id="legend">
-          <div class="row"><span class="swatch" style="background:#fb7185"></span> Jalur original</div>
-          <div class="row"><span class="swatch" style="background:#22d3ee"></span> Jalur enhanced</div>
+          <div class="row" id="legend-trail-original"><span class="swatch" style="background:#fb7185"></span> Jalur original</div>
+          <div class="row" id="legend-trail-enhanced"><span class="swatch" style="background:#22d3ee"></span> Jalur enhanced</div>
+          <div class="row" id="legend-ghost"><span class="swatch" style="background:#fb7185;height:8px;border-radius:2px;opacity:.55"></span> Bayangan = original</div>
         </div>
 
         <div class="overlay" id="overlay">
@@ -152,6 +154,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
   <script src="js/fluidizer.js"></script>
   <script src="js/three-adapter.js"></script>
   <script src="js/app.js"></script>
