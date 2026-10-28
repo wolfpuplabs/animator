@@ -153,6 +153,9 @@ header {
   background: rgba(34, 211, 238, 0.09);
 }
 
+.dropzone.compact { padding: 0.8rem 0.8rem; }
+.dropzone.compact .icon { font-size: 1.15rem; }
+
 .dropzone .icon { font-size: 1.4rem; }
 .dropzone .label { font-weight: 600; font-size: 0.82rem; margin-top: 0.25rem; }
 .dropzone .sub { font-size: 0.7rem; color: var(--muted); margin-top: 0.15rem; }

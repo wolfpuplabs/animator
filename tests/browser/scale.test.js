@@ -165,8 +165,8 @@ const seek = (page, v) => page.evaluate((val) => {
     (await page.locator('#file-input').getAttribute('accept')).indexOf('.fbx') !== -1,
     await page.locator('#file-input').getAttribute('accept'));
   r.check('label dropzone menyebut FBX',
-    (await page.locator('.dropzone .label').textContent()).indexOf('FBX') !== -1,
-    await page.locator('.dropzone .label').textContent());
+    (await page.locator('#dropzone .label').textContent()).indexOf('FBX') !== -1,
+    await page.locator('#dropzone .label').textContent());
 
   // Berkas rusak harus memberi pesan khusus FBX, bukan pesan glTF —
   // itu membuktikan ekstensinya benar-benar dirutekan ke pemuat FBX.

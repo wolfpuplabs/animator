@@ -34,6 +34,7 @@ Animasi terasa patah biasanya karena beberapa hal, dan semuanya ditangani:
 | Susah melihat apa yang berubah | — | Bayangan original, motion trail, tombol A/B |
 | Deformasi jelek di setiap frame | Bobot skin rusak, envelope bergerigi | Panel Skinning & Envelope |
 | Hasil mocap harus dikonversi dulu | Perkakas mocap mengekspor FBX | Muat .FBX langsung |
+| Tidak punya perkakas mocap | — | Tangkap dari video di peramban |
 
 ---
 
@@ -77,6 +78,38 @@ frame. Overshoot murni muncul saat gerakan berbelok.
 **5. Compact.** Hasil 120 fps itu indah tapi boros. Key yang bisa
 direkonstruksi ulang lewat interpolasi linear dalam batas error tertentu
 dibuang.
+
+### Tangkap dari video
+
+Video bisa dijadikan animasi langsung di peramban. Deteksi pose berjalan
+lokal lewat WebAssembly (MediaPipe Pose Landmarker) — videonya tidak
+dikirim ke mana pun.
+
+```
+video → deteksi pose → rig beranimasi → engine MFS 5 → GLB
+```
+
+**Hasilnya kasar, dan itu melekat pada metodenya.** Deteksi pose memberi
+POSISI sendi, bukan rotasi tulang. Rotasi di sini disimpulkan dengan
+mengarahkan tiap tulang ke sendi anaknya, dan putaran sumbu panjangnya
+ditebak dari sumbu bahu atau pinggul. Siku yang terpelintir dan
+pergelangan yang berputar tidak akan terekam benar. Ini alat previz.
+
+Perbandingan jujur dengan mocap sungguhan:
+
+| | RGB MoCap | Deteksi di peramban |
+|---|---|---|
+| Keluaran | Mesh SMPL-X penuh + jari | 33 titik sendi |
+| Rotasi tulang | Ya | Disimpulkan dari posisi |
+| Jalan di | Windows + GPU, ~45 GB | Peramban mana saja |
+| Cocok untuk | Produksi | Previz, referensi |
+
+Yang keluar dari deteksi justru goyang dan berderau — persis yang engine
+di sini dibuat untuk bereskan, jadi keduanya nyambung secara alami.
+
+Beberapa catatan praktis: satu orang saja di frame, seluruh badan
+terlihat, dan hindari potongan kamera. Sendi yang tertutup ditahan di
+rotasi terakhirnya, bukan dinolkan, supaya tidak menyentak.
 
 ### Alur dari motion capture
 
@@ -232,12 +265,17 @@ css/style.css               tampilan
 js/fluidizer.js             engine animasi (JS murni, tanpa dependensi, bisa dipakai di node)
 js/skinfix.js               perbaikan bobot skin & envelope (juga tanpa dependensi)
 js/i18n.js                  kamus dan pengalih bahasa
+js/posemocap.js             titik sendi → rotasi tulang (tanpa dependensi)
+js/posepipeline.js          rig three.js dari keluaran posemocap
+js/posedetect.js            jembatan ke MediaPipe Pose
 js/three-adapter.js         jembatan THREE.AnimationClip ↔ engine
 js/app.js                   viewer, kontrol, export
 standalone.html             hasil rakitan satu berkas (jangan diedit langsung)
 tools/build-standalone.js   perakitnya
 tests/fluidizer.test.js     unit test engine animasi
 tests/skinfix.test.js       unit test perbaikan skin
+tests/posemocap.test.js     unit test retargeting pose
+tests/i18n.test.js          penjaga paritas kamus dua bahasa
 tests/standalone.test.js    penjaga sinkronisasi berkas rakitan
 tests/browser/              test end-to-end di browser sungguhan
 ```
@@ -331,6 +369,21 @@ besar-kecil: `innerText` mengembalikan teks setelah `text-transform`, jadi
 judul seksi yang di-CSS jadi huruf besar akan lolos dari pemindai yang
 case-sensitive.
 
+`tests/posemocap.test.js` menguji retargeting-nya dengan orang sintetis,
+termasuk dua round-trip: arah tiap tulang hasil forward kinematics harus
+cocok dengan arah sendi masukan, dan posisi pangkal tiap tulang harus
+cocok dengan landmark-nya. Yang kedua itu penting — versi pertama modul
+ini memasang lengan di tengah dada dan round-trip arah tetap lolos.
+
+`tests/browser/video.test.js` membuat video ujinya sendiri di dalam
+halaman, dengan MediaRecorder dari satu foto yang digerakkan, jadi tidak
+ada berkas video yang ikut repo. Foto dan berkas model MediaPipe (5,7 MB)
+di-cache di `tests/browser/.cache` dan diunduh sekali saat dibutuhkan;
+kalau tidak tersedia, test-nya melewat dengan keterangan, bukan gagal.
+Deteksi pose dijalankan lewat HTTP, bukan `file://`: di sana blob URL
+video diblokir dan `import()` dari script klasik tidak bisa me-resolve
+modul.
+
 `tests/browser/scale.test.js` memuat model setinggi 0,05 / 2 / 160 / 5000
 unit dan memeriksa dari piksel bahwa semuanya terlihat, di tengah, dan
 berproporsi wajar. Tanpa penskalaan skena, dua ukuran terbesar menghasilkan
@@ -391,6 +444,10 @@ orang apa adanya.
 - **Tinggi app memakai `dvh`.** Browser lama yang belum mengenalnya jatuh
   ke `100vh`, dan di sana bagian bawah halaman bisa tertutup toolbar
   browser pada ponsel/tablet.
+- **Deteksi pose menebak rotasi tulang.** Yang diberikan deteksi adalah
+  posisi sendi; twist di sepanjang tulang tidak terukur sama sekali dan
+  hanya ditebak dari sumbu bahu atau pinggul. Satu orang per video, dan
+  potongan kamera akan merusak kontinuitasnya.
 - **Perbaikan skin bekerja pada topologi, bukan pada makna anatomi.**
   Penghalusan envelope tidak tahu mana siku dan mana lutut; ia hanya
   melandaikan medan bobot. Untuk rig yang envelope-nya memang sengaja
