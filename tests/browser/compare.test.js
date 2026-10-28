@@ -47,7 +47,7 @@ const seek = (page, v) => page.evaluate((val) => {
 }, v);
 
 (async () => {
-  const url = buildSite();
+  const url = await buildSite();
   const browser = await launch();
   const page = await browser.newPage({ locale: 'id-ID', viewport: { width: 1280, height: 800 } });
   const errors = [];

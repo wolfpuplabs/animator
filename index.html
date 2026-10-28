@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MFS 5 — Motion Fluidity Synthesis</title>
+  <!--
+    Favicon ditempel sebagai data URI. Tanpa ini peramban meminta
+    /favicon.ico sendiri, dan saat halaman disajikan lewat HTTP
+    permintaan itu jadi 404 di konsol — berisik, dan menutupi error
+    sungguhan. Dulu tidak kelihatan karena halamannya dibuka via file://.
+  -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b1120'/%3E%3Cpath d='M3 11c2-5 8-5 10 0' stroke='%2322d3ee' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='8' cy='5' r='1.6' fill='%238b5cf6'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -198,13 +205,44 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+  <!--
+    three.js dimuat sebagai modul ES. Build klasik examples/js/ berhenti
+    terbit setelah r147, jadi menempel di sana berarti menempel di versi
+    lawas selamanya — termasuk kebiasaan r128 yang mengharuskan
+    material.skinning dinyalakan tangan.
+
+    Script di bawah ini modul, dan modul selalu ditunda sampai dokumen
+    selesai diurai — tapi tetap dijalankan sebelum event 'load'. app.js
+    melakukan inisialisasi pada 'load', jadi seluruh berkas js/ di bawah
+    boleh tetap jadi script klasik yang memakai window.THREE apa adanya.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+    import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+    import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+    // Namespace modul bersifat baca-saja, jadi addon-nya disalin ke objek
+    // biasa supaya pemakaian lama THREE.GLTFLoader dan kawan-kawan tetap
+    // jalan. Kelasnya rujukan yang sama, jadi instanceof tidak berubah.
+    window.THREE = Object.assign({}, THREE, {
+      OrbitControls: OrbitControls,
+      GLTFLoader: GLTFLoader,
+      FBXLoader: FBXLoader,
+      GLTFExporter: GLTFExporter,
+      SkeletonUtils: SkeletonUtils
+    });
+  </script>
   <script src="js/i18n.js"></script>
   <script src="js/posemocap.js"></script>
   <script src="js/posepipeline.js"></script>

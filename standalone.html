@@ -10,6 +10,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MFS 5 — Motion Fluidity Synthesis</title>
+  <!--
+    Favicon ditempel sebagai data URI. Tanpa ini peramban meminta
+    /favicon.ico sendiri, dan saat halaman disajikan lewat HTTP
+    permintaan itu jadi 404 di konsol — berisik, dan menutupi error
+    sungguhan. Dulu tidak kelihatan karena halamannya dibuka via file://.
+  -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230b1120'/%3E%3Cpath d='M3 11c2-5 8-5 10 0' stroke='%2322d3ee' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='8' cy='5' r='1.6' fill='%238b5cf6'/%3E%3C/svg%3E">
   <style>
 :root {
   --bg: #0b1120;
@@ -742,13 +749,44 @@ input[type="range"] {
 
   <div class="toast" id="toast"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+  <!--
+    three.js dimuat sebagai modul ES. Build klasik examples/js/ berhenti
+    terbit setelah r147, jadi menempel di sana berarti menempel di versi
+    lawas selamanya — termasuk kebiasaan r128 yang mengharuskan
+    material.skinning dinyalakan tangan.
+
+    Script di bawah ini modul, dan modul selalu ditunda sampai dokumen
+    selesai diurai — tapi tetap dijalankan sebelum event 'load'. app.js
+    melakukan inisialisasi pada 'load', jadi seluruh berkas js/ di bawah
+    boleh tetap jadi script klasik yang memakai window.THREE apa adanya.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+    import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+    import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+    // Namespace modul bersifat baca-saja, jadi addon-nya disalin ke objek
+    // biasa supaya pemakaian lama THREE.GLTFLoader dan kawan-kawan tetap
+    // jalan. Kelasnya rujukan yang sama, jadi instanceof tidak berubah.
+    window.THREE = Object.assign({}, THREE, {
+      OrbitControls: OrbitControls,
+      GLTFLoader: GLTFLoader,
+      FBXLoader: FBXLoader,
+      GLTFExporter: GLTFExporter,
+      SkeletonUtils: SkeletonUtils
+    });
+  </script>
   <script>
 /*
  * i18n.js — pengalih bahasa Indonesia / Inggris.
@@ -3886,7 +3924,13 @@ input[type="range"] {
     state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     state.renderer.shadowMap.enabled = true;
     state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    state.renderer.outputEncoding = THREE.sRGBEncoding;
+    // r152 mengganti outputEncoding/sRGBEncoding dengan outputColorSpace.
+    // Keduanya ditangani supaya berkas ini tidak terikat satu versi three.
+    if ('outputColorSpace' in state.renderer && THREE.SRGBColorSpace) {
+      state.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    } else if (THREE.sRGBEncoding !== undefined) {
+      state.renderer.outputEncoding = THREE.sRGBEncoding;
+    }
     host.appendChild(state.renderer.domElement);
 
     state.controls = new THREE.OrbitControls(state.camera, state.renderer.domElement);
@@ -4007,6 +4051,18 @@ input[type="range"] {
   var BOUND_VERTEX_BUDGET = 512;
 
   /**
+   * SkinnedMesh.boneTransform dinamai ulang jadi applyBoneTransform di
+   * three r151. Keduanya dicari supaya pengukuran batas model tetap
+   * memakai posisi SETELAH skinning, bukan pose rest — tanpa ini kotak
+   * batasnya meleset jauh pada model yang beranimasi.
+   */
+  function boneTransformFn(mesh) {
+    if (typeof mesh.applyBoneTransform === 'function') return mesh.applyBoneTransform;
+    if (typeof mesh.boneTransform === 'function') return mesh.boneTransform;
+    return null;
+  }
+
+  /**
    * Kumpulkan mesh yang perlu diukur, sekalian pilih vertex contoh untuk
    * yang ber-skeleton. Vertex-nya disubsample karena mengukur seluruh
    * vertex di setiap titik waktu terlalu mahal untuk model besar.
@@ -4016,7 +4072,7 @@ input[type="range"] {
     object.traverse(function (child) {
       if (!child.geometry) return;
       var attrs = child.geometry.attributes;
-      if (child.isSkinnedMesh && attrs && attrs.skinIndex && typeof child.boneTransform === 'function') {
+      if (child.isSkinnedMesh && attrs && attrs.skinIndex && boneTransformFn(child)) {
         var count = attrs.position.count;
         var stride = Math.max(1, Math.ceil(count / BOUND_VERTEX_BUDGET));
         var indices = [];
@@ -4058,8 +4114,17 @@ input[type="range"] {
       targets.skinned.forEach(function (entry) {
         entry.mesh.skeleton.update();
         if (entry.subsampled) subsampled = true;
+        var transform = boneTransformFn(entry.mesh);
+        var position = entry.mesh.geometry.attributes.position;
         for (var i = 0; i < entry.indices.length; i++) {
-          entry.mesh.boneTransform(entry.indices[i], v);
+          // applyBoneTransform MEMBACA posisi awal dari target, sedangkan
+          // boneTransform yang lama mengambilnya sendiri dari atribut
+          // position. Tanpa mengisi v lebih dulu, yang terkulit adalah
+          // sisa nilai iterasi sebelumnya: kotak batasnya jadi ngawur,
+          // kamera salah jarak, dan model membanjiri frame. Mengisinya
+          // juga aman untuk boneTransform, yang menimpa nilai ini.
+          v.fromBufferAttribute(position, entry.indices[i]);
+          transform.call(entry.mesh, entry.indices[i], v);
           v.applyMatrix4(entry.mesh.matrixWorld);
           box.expandByPoint(v);
         }
