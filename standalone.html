@@ -1801,6 +1801,13 @@ input[type="range"] {
     var material = new THREE.MeshStandardMaterial({
       color: 0x22d3ee, roughness: 0.45, metalness: 0.05
     });
+    // three r128 hanya menerapkan skinning kalau material.skinning true, dan
+    // defaultnya false (WebGLRenderer: `object.isSkinnedMesh && material.skinning`).
+    // GLTFLoader menyalakannya sendiri, jadi model yang diunggah beranimasi
+    // normal — material buatan tangan tidak. Tanpa baris ini tulangnya
+    // berputar, klipnya benar, GLB-nya benar, tapi mesh-nya membeku di bind
+    // pose: sosok diam yang terbaca seperti tangkapan yang gagal.
+    material.skinning = true;
     var mesh = new THREE.SkinnedMesh(geometry, material);
     mesh.name = 'CaptureBody';
     root.add(mesh);

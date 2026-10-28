@@ -113,8 +113,22 @@ rotasi terakhirnya, bukan dinolkan, supaya tidak menyentak.
 
 #### Kalau sosoknya keluar tapi diam
 
-Dua sebab yang gampang tertukar, dan dulu keduanya memberi pesan yang
-sama menyesatkan:
+Tiga sebab yang gampang tertukar.
+
+**Skinning tidak menyala.** Ini bug yang sempat ada dan paling
+menyesatkan dari semuanya. three r128 cuma menerapkan skinning kalau
+`material.skinning` true (`WebGLRenderer`: `object.isSkinnedMesh &&
+material.skinning`), dan defaultnya false. `GLTFLoader` menyalakannya
+sendiri, jadi model yang diunggah beranimasi normal — material yang
+dibuat tangan di `posepipeline.js` tidak. Akibatnya tulang berputar,
+klipnya penuh, GLB-nya benar dan ikut beranimasi di Blender, tapi mesh
+di layar membeku di bind pose. Semua asersi yang ada waktu itu tetap
+lulus; yang menangkapnya cuma membandingkan piksel yang benar-benar
+dirender pada dua waktu klip berbeda. Diukur pada video sungguhan:
+tanpa `material.skinning` beda pikselnya 0,69 / 0,00 / 0,00; dengan,
+5,31 / 6,14 / 7,34.
+
+Dua sebab lain, yang dulu sama-sama memberi pesan menyesatkan:
 
 **Videonya tidak bisa didekode peramban.** Berkas dengan codec yang tidak
 didukung — HEVC di `.mov` dari iPhone/iPad adalah kasus paling umum —
@@ -296,6 +310,7 @@ tools/build-standalone.js   perakitnya
 tests/fluidizer.test.js     unit test engine animasi
 tests/skinfix.test.js       unit test perbaikan skin
 tests/posemocap.test.js     unit test retargeting pose
+tests/posepipeline.test.js  penjaga rig hasil tangkapan (termasuk material.skinning)
 tests/i18n.test.js          penjaga paritas kamus dua bahasa
 tests/standalone.test.js    penjaga sinkronisasi berkas rakitan
 tests/browser/              test end-to-end di browser sungguhan
