@@ -20,6 +20,9 @@
     scrubbing: false,
     fileName: 'model',
     trailGroup: null,
+    keyLight: null,
+    grid: null,
+    floor: null,
     ghost: { root: null, mixer: null, action: null, material: null },
     skinReport: null,
     presetName: 'balanced',
@@ -41,6 +44,8 @@
 
     state.scene = new THREE.Scene();
     state.scene.background = new THREE.Color(0x0b1120);
+    // Kabut, grid, dan kamera bayangan disetel per model di fitSceneToModel:
+    // nilai tetap hanya benar untuk skena seukuran demo.
     state.scene.fog = new THREE.Fog(0x0b1120, 18, 55);
 
     state.camera = new THREE.PerspectiveCamera(45, 1, 0.05, 500);
@@ -64,14 +69,10 @@
     key.position.set(5, 9, 6);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
-    key.shadow.camera.near = 0.5;
-    key.shadow.camera.far = 40;
-    key.shadow.camera.left = -8;
-    key.shadow.camera.right = 8;
-    key.shadow.camera.top = 8;
-    key.shadow.camera.bottom = -8;
     key.shadow.bias = -0.0008;
     state.scene.add(key);
+    state.scene.add(key.target);
+    state.keyLight = key;
 
     var rim = new THREE.DirectionalLight(0x7dd3fc, 0.55);
     rim.position.set(-6, 3, -5);
@@ -89,6 +90,8 @@
     grid.material.opacity = 0.35;
     grid.material.transparent = true;
     state.scene.add(grid);
+    state.grid = grid;
+    state.floor = floor;
 
     state.trailGroup = new THREE.Group();
     state.scene.add(state.trailGroup);
@@ -292,6 +295,65 @@
    * tetap dihitung agar seluruh lintasan muat, supaya model tidak keluar
    * frame begitu diputar.
    */
+  /**
+   * Setel ulang kabut, grid, lantai, dan kamera bayangan mengikuti ukuran
+   * model.
+   *
+   * Nilai tetap hanya benar untuk satu ukuran skena. Model dunia nyata
+   * datang dalam satuan apa saja — berkas FBX dari perkakas motion capture
+   * umumnya dalam sentimeter, jadi karakter setinggi 1,6 meter masuk
+   * sebagai 160 unit. Dengan kabut tetap 18–55 unit, model sejauh itu dari
+   * kamera dirender persis warna latar: terlihat seperti viewport kosong
+   * padahal framing-nya sudah benar. Kamera bayangan yang terlalu kecil
+   * memberi gejala serupa, model jadi gelap seluruhnya.
+   */
+  function fitSceneToModel(box, cameraDistance) {
+    var size = box.getSize(new THREE.Vector3());
+    var center = box.getCenter(new THREE.Vector3());
+    var radius = Math.max(size.length() / 2, 1e-3);
+
+    if (state.scene.fog) {
+      state.scene.fog.near = cameraDistance + radius * 0.5;
+      state.scene.fog.far = cameraDistance + radius * 12;
+    }
+
+    if (state.grid) {
+      var span = Math.max(radius * 6, 1e-3);
+      var divisions = 20;
+      var fresh = new THREE.GridHelper(span, divisions, 0x3b82f6, 0x223049);
+      fresh.material.opacity = 0.35;
+      fresh.material.transparent = true;
+      fresh.position.set(center.x, box.min.y, center.z);
+      state.scene.remove(state.grid);
+      state.grid.geometry.dispose();
+      state.grid.material.dispose();
+      state.scene.add(fresh);
+      state.grid = fresh;
+    }
+
+    if (state.floor) {
+      state.floor.position.set(center.x, box.min.y, center.z);
+      state.floor.scale.setScalar(Math.max(radius / 10, 1e-3));
+    }
+
+    var key = state.keyLight;
+    if (key) {
+      key.position.set(center.x + radius * 1.6, box.max.y + radius * 1.8, center.z + radius * 1.4);
+      key.target.position.copy(center);
+      key.target.updateMatrixWorld();
+      var cam = key.shadow.camera;
+      cam.left = -radius * 1.5;
+      cam.right = radius * 1.5;
+      cam.top = radius * 1.5;
+      cam.bottom = -radius * 1.5;
+      cam.near = Math.max(radius * 0.05, 0.01);
+      cam.far = radius * 8;
+      cam.updateProjectionMatrix();
+      // bias harus ikut skala, kalau tidak model besar jadi belang
+      key.shadow.bias = -0.0008 * Math.max(radius / 2, 1);
+    }
+  }
+
   function frameCamera(object, clip) {
     var bounds = measureBounds(object, clip);
     var box = bounds.animated;
@@ -375,6 +437,7 @@
 
     state.controls.target.copy(target);
     state.controls.update();
+    fitSceneToModel(restBox, dist);
   }
 
   /* ================================================================== *
@@ -684,22 +747,53 @@
    * Load file
    * ================================================================== */
 
-  function loadFile(file) {
-    var url = URL.createObjectURL(file);
-    var loader = new THREE.GLTFLoader();
+  /**
+   * Pemuat berdasarkan ekstensi berkas.
+   *
+   * FBX ada di sini karena itulah yang dikeluarkan perkakas motion capture
+   * seperti RGB MoCap: hasil tangkapannya diekspor sebagai FBX, dan tanpa
+   * pemuat ini pengguna harus mengonversinya lebih dulu di Blender sebelum
+   * bisa dibersihkan di sini.
+   */
+  function loaderFor(fileName) {
+    var ext = (fileName.split('.').pop() || '').toLowerCase();
+    if (ext === 'fbx') {
+      if (typeof THREE.FBXLoader !== 'function') return null;
+      return { kind: 'fbx', loader: new THREE.FBXLoader() };
+    }
+    return { kind: 'gltf', loader: new THREE.GLTFLoader() };
+  }
 
+  function loadFile(file) {
+    var picked = loaderFor(file.name);
+    if (!picked) {
+      toast(tr('toast.fbxmissing'), true);
+      return;
+    }
+
+    var url = URL.createObjectURL(file);
     showOverlay(tr('overlay.loading'), file.name);
     state.fileName = file.name.replace(/\.[^/.]+$/, '') || 'model';
 
-    loader.load(url, function (gltf) {
+    picked.loader.load(url, function (result) {
       URL.revokeObjectURL(url);
       hideOverlay();
-      if (!gltf.animations || !gltf.animations.length) {
-        setModel(gltf.scene, [], file.name);
+
+      // GLTFLoader mengembalikan pembungkus {scene, animations}; FBXLoader
+      // mengembalikan Group yang animasinya menempel di properti animations.
+      var root = picked.kind === 'fbx' ? result : result.scene;
+      var clips = (picked.kind === 'fbx' ? result.animations : result.animations) || [];
+
+      if (!root) {
+        toast(tr('toast.loadfail'), true);
+        return;
+      }
+      if (!clips.length) {
+        setModel(root, [], file.name);
         toast(tr('toast.noanim'), true);
         return;
       }
-      setModel(gltf.scene, gltf.animations, file.name);
+      setModel(root, clips, file.name);
     }, function (evt) {
       if (evt && evt.lengthComputable) {
         $('overlay-sub').textContent = Math.round(evt.loaded / evt.total * 100) + '%';
@@ -708,7 +802,7 @@
       URL.revokeObjectURL(url);
       hideOverlay();
       console.error(err);
-      toast(tr('toast.loadfail'), true);
+      toast(picked.kind === 'fbx' ? tr('toast.fbxfail') : tr('toast.loadfail'), true);
     });
   }
 

@@ -26,9 +26,9 @@
         <div class="section-title"><span class="step">1</span> <span data-i18n="sec.source">Sumber Animasi</span></div>
         <div class="dropzone" id="dropzone">
           <div class="icon">&#128230;</div>
-          <div class="label" data-i18n="drop.label">Taruh file .GLB / .GLTF</div>
+          <div class="label" data-i18n="drop.label">Taruh file .GLB / .GLTF / .FBX</div>
           <div class="sub" data-i18n="drop.sub">atau klik untuk pilih file</div>
-          <input type="file" id="file-input" accept=".gltf,.glb,model/gltf-binary,model/gltf+json">
+          <input type="file" id="file-input" accept=".gltf,.glb,.fbx,model/gltf-binary,model/gltf+json">
         </div>
         <button id="btn-demo" data-i18n="btn.demo">&#127918; Muat Demo (animasi sengaja patah)</button>
       </div>
@@ -180,6 +180,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
   <script src="js/i18n.js"></script>
