@@ -52,7 +52,7 @@ const scanFor = (page, selector, markers) => page.evaluate(([sel, words]) => {
 }, [selector, markers]);
 
 (async () => {
-  const url = buildSite();
+  const url = await buildSite();
   const browser = await launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, locale: 'id-ID' });
   const errors = [];

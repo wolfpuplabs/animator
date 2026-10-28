@@ -29,12 +29,10 @@ const r = H.createReporter('Video');
     process.exit(0);
   }
 
-  const fileUrl = H.buildSite();
-  const siteDir = path.dirname(fileUrl.replace('file://', ''));
-
-  // Deteksi pose tidak bisa jalan di file://: blob URL video diblokir dan
-  // import() dari script klasik punya base URL about:blank.
-  const server = await H.serveDir(siteDir);
+  // buildSite() kini menyajikan situsnya lewat HTTP untuk semua test:
+  // modul three tidak bisa dimuat dari file://, dan deteksi pose juga
+  // memang tidak pernah bisa di sana (blob URL video diblokir).
+  const url = await H.buildSite();
   const browser = await H.launch();
   const page = await browser.newPage({ locale: 'id-ID', viewport: { width: 1280, height: 860 } });
 
@@ -46,7 +44,7 @@ const r = H.createReporter('Video');
     if (m.type() === 'error' && !/404|Failed to load resource/.test(t)) errors.push('console: ' + t.slice(0, 200));
   });
 
-  await page.goto(server.url);
+  await page.goto(url);
   await page.waitForTimeout(2200);
 
   r.section('Persiapan');
@@ -71,12 +69,21 @@ const r = H.createReporter('Video');
     document.body.appendChild(c);
     const x = c.getContext('2d');
 
+    // Fotonya DIPUTAR, bukan cuma digeser.
+    //
+    // Foto diam yang digeser menghasilkan pose sendi yang sama di tiap
+    // frame: rig-nya praktis membeku, dan asersi "pose berubah seiring
+    // waktu" di bawah tidak punya apa-apa untuk diukur. Memutarnya
+    // mengubah arah setiap tulang di ruang dunia, jadi gerakannya nyata
+    // dan melewati deteksi pose sungguhan — terukur sekitar 47 derajat
+    // di pinggul untuk putaran 50 derajat.
     const draw = (el) => {
       x.fillStyle = '#ffffff';
       x.fillRect(0, 0, W, Hh);
       x.save();
-      x.translate(W / 2 + Math.sin(el * 3) * 16, Hh / 2);
-      const s = 1 + Math.sin(el * 2) * 0.04;
+      x.translate(W / 2 + Math.sin(el * 3) * 10, Hh / 2);
+      x.rotate(Math.min(el / 2.2, 1) * 45 * Math.PI / 180);
+      const s = 0.78 + Math.sin(el * 2) * 0.03;
       x.scale(s, s);
       x.drawImage(img, -W / 2, -Hh / 2, W, Hh);
       x.restore();
@@ -293,6 +300,5 @@ const r = H.createReporter('Video');
 
   await page.locator('#canvas-host').screenshot({ path: path.join(H.OUT, 'video-rig.png') });
   await browser.close();
-  await server.close();
   r.finish();
 })().catch(e => { console.error(e); process.exit(1); });

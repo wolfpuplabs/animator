@@ -74,7 +74,10 @@ async function makeScaledRigGLB(page) {
 
     const exporter = new THREE.GLTFExporter();
     const buf = await new Promise((res, rej) => {
-      try { exporter.parse(root, res, { binary: true, animations: [new THREE.AnimationClip('wave', dur, tracks)] }); }
+      // GLTFExporter memakai parse(input, onDone, onError, options).
+      // Di tanda tangan lama options ada di slot ketiga; kalau salah,
+      // binary:true dan daftar animasinya diam-diam dibuang.
+      try { exporter.parse(root, res, rej, { binary: true, animations: [new THREE.AnimationClip('wave', dur, tracks)] }); }
       catch (err) { rej(err); }
     });
     const bytes = new Uint8Array(buf);
@@ -122,13 +125,35 @@ async function measure(page) {
     ctx.drawImage(img, 0, 0, w, h);
     const data = ctx.getImageData(0, 0, w, h).data;
 
+    const lumAt = (i) => (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
+
+    // Ambang dihitung dari gambarnya sendiri, bukan angka tetap.
+    //
+    // Versi sebelumnya memakai `lum > 0.55`, yang dikalibrasi ke keluaran
+    // three r128. Sejak r152 ColorManagement menyala secara default, jadi
+    // warna material ditafsirkan sebagai sRGB lalu dikonversi ke linear —
+    // nada keluarannya bergeser dan bagian model yang lebih gelap jatuh
+    // di bawah 0.55. Kotaknya lalu memotong kaki model: ukurannya menyusut
+    // dan titik tengahnya naik, padahal framing kameranya tidak berubah.
+    //
+    // Yang diukur test ini geometri (di mana model di layar), bukan nada
+    // warna. Jadi ambangnya diturunkan dari latar: piksel dianggap model
+    // kalau cukup jauh di atas latar relatif terhadap rentang terang
+    // gambar itu. Garis grid yang cuma sedikit di atas latar tetap
+    // terbuang, sementara sisi gelap model ikut terhitung.
+    let bg = 1, peak = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const l = lumAt(i);
+      if (l < bg) bg = l;
+      if (l > peak) peak = l;
+    }
+    const cut = bg + (peak - bg) * 0.35;
+
     let minX = w, minY = h, maxX = -1, maxY = -1, count = 0;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
-        // model diberi emissive putih; latar dan grid jauh lebih redup
-        const lum = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
-        if (lum > 0.55) {
+        if (lumAt(i) > cut) {
           count++;
           if (x < minX) minX = x;
           if (x > maxX) maxX = x;
@@ -139,6 +164,7 @@ async function measure(page) {
     }
     if (maxX < 0) return null;
     return {
+      cut: cut,
       left: minX / w, right: maxX / w, top: minY / h, bottom: maxY / h,
       cx: (minX + maxX) / 2 / w, cy: (minY + maxY) / 2 / h,
       width: (maxX - minX) / w, height: (maxY - minY) / h,
@@ -184,7 +210,7 @@ const seek = (page, v) => page.evaluate((val) => {
 }, v);
 
 (async () => {
-  const url = buildSite();
+  const url = await buildSite();
   const browser = await launch();
   const page = await browser.newPage({ locale: 'id-ID', viewport: { width: 1280, height: 800 } });
   const errors = [];

@@ -116,9 +116,12 @@ rotasi terakhirnya, bukan dinolkan, supaya tidak menyentak.
 Tiga sebab yang gampang tertukar.
 
 **Skinning tidak menyala.** Ini bug yang sempat ada dan paling
-menyesatkan dari semuanya. three r128 cuma menerapkan skinning kalau
-`material.skinning` true (`WebGLRenderer`: `object.isSkinnedMesh &&
-material.skinning`), dan defaultnya false. `GLTFLoader` menyalakannya
+menyesatkan dari semuanya. Waktu itu three masih r128, yang cuma
+menerapkan skinning kalau `material.skinning` true (`WebGLRenderer`:
+`object.isSkinnedMesh && material.skinning`), dan defaultnya false.
+Sejak r130 skinning berjalan otomatis, jadi kelas bug ini hilang
+bersama pemutakhiran three — tapi ceritanya disimpan karena pola
+gagalnya layak dikenali. `GLTFLoader` menyalakannya
 sendiri, jadi model yang diunggah beranimasi normal — material yang
 dibuat tangan di `posepipeline.js` tidak. Akibatnya tulang berputar,
 klipnya penuh, GLB-nya benar dan ikut beranimasi di Blender, tapi mesh
@@ -351,9 +354,14 @@ npm run test:browser # end-to-end di Chromium
 npm run test:all
 ```
 
-Test browser menyalin halaman ke direktori sementara dan mengarahkan tag
-`<script>`-nya ke three.js dari `node_modules`, jadi tidak bergantung pada
-jaringan. Kalau sudah punya Chromium sendiri, set `CHROMIUM_PATH`.
+Test browser menyalin halaman ke direktori sementara, menyalin three.js
+dari `node_modules`, dan mengarahkan import map ke salinan itu — jadi
+tidak bergantung pada jaringan. Halamannya disajikan lewat HTTP lokal,
+bukan `file://`: modul ES tunduk pada CORS dan berkas lokal beroperasi di
+origin `null`, sehingga setiap `import` diblokir di sana. Kalau sudah
+punya Chromium sendiri, set `CHROMIUM_PATH`. `MFS_SERVE_DEBUG=1`
+menyebutkan berkas yang 404 — tanpa itu yang terlihat cuma "Failed to
+load resource" tanpa nama.
 
 `tests/browser/rigged.test.js` membuat rig skinned sungguhan, mengekspornya
 jadi GLB, memuatnya lewat file input aplikasi, meng-enhance, mengekspor
@@ -496,5 +504,6 @@ orang apa adanya.
   `setTimeout` supaya UI tidak membeku, tapi rig sangat besar dengan frame
   rate tinggi tetap akan terasa jeda. Web Worker adalah langkah berikutnya
   yang masuk akal.
-- Dimuat dari CDN: three.js r128 (dipatok, karena build `examples/js`
-  non-module tidak ada lagi di versi baru).
+- Dimuat dari CDN: three.js 0.186.1, dipatok versinya, lewat import map
+  sebagai modul ES. Peramban tanpa dukungan import map (Safari di bawah
+  16.4, Chrome di bawah 89) tidak akan jalan.

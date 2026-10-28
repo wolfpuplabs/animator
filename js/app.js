@@ -56,7 +56,13 @@
     state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     state.renderer.shadowMap.enabled = true;
     state.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    state.renderer.outputEncoding = THREE.sRGBEncoding;
+    // r152 mengganti outputEncoding/sRGBEncoding dengan outputColorSpace.
+    // Keduanya ditangani supaya berkas ini tidak terikat satu versi three.
+    if ('outputColorSpace' in state.renderer && THREE.SRGBColorSpace) {
+      state.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    } else if (THREE.sRGBEncoding !== undefined) {
+      state.renderer.outputEncoding = THREE.sRGBEncoding;
+    }
     host.appendChild(state.renderer.domElement);
 
     state.controls = new THREE.OrbitControls(state.camera, state.renderer.domElement);
@@ -177,6 +183,18 @@
   var BOUND_VERTEX_BUDGET = 512;
 
   /**
+   * SkinnedMesh.boneTransform dinamai ulang jadi applyBoneTransform di
+   * three r151. Keduanya dicari supaya pengukuran batas model tetap
+   * memakai posisi SETELAH skinning, bukan pose rest — tanpa ini kotak
+   * batasnya meleset jauh pada model yang beranimasi.
+   */
+  function boneTransformFn(mesh) {
+    if (typeof mesh.applyBoneTransform === 'function') return mesh.applyBoneTransform;
+    if (typeof mesh.boneTransform === 'function') return mesh.boneTransform;
+    return null;
+  }
+
+  /**
    * Kumpulkan mesh yang perlu diukur, sekalian pilih vertex contoh untuk
    * yang ber-skeleton. Vertex-nya disubsample karena mengukur seluruh
    * vertex di setiap titik waktu terlalu mahal untuk model besar.
@@ -186,7 +204,7 @@
     object.traverse(function (child) {
       if (!child.geometry) return;
       var attrs = child.geometry.attributes;
-      if (child.isSkinnedMesh && attrs && attrs.skinIndex && typeof child.boneTransform === 'function') {
+      if (child.isSkinnedMesh && attrs && attrs.skinIndex && boneTransformFn(child)) {
         var count = attrs.position.count;
         var stride = Math.max(1, Math.ceil(count / BOUND_VERTEX_BUDGET));
         var indices = [];
@@ -228,8 +246,17 @@
       targets.skinned.forEach(function (entry) {
         entry.mesh.skeleton.update();
         if (entry.subsampled) subsampled = true;
+        var transform = boneTransformFn(entry.mesh);
+        var position = entry.mesh.geometry.attributes.position;
         for (var i = 0; i < entry.indices.length; i++) {
-          entry.mesh.boneTransform(entry.indices[i], v);
+          // applyBoneTransform MEMBACA posisi awal dari target, sedangkan
+          // boneTransform yang lama mengambilnya sendiri dari atribut
+          // position. Tanpa mengisi v lebih dulu, yang terkulit adalah
+          // sisa nilai iterasi sebelumnya: kotak batasnya jadi ngawur,
+          // kamera salah jarak, dan model membanjiri frame. Mengisinya
+          // juga aman untuk boneTransform, yang menimpa nilai ini.
+          v.fromBufferAttribute(position, entry.indices[i]);
+          transform.call(entry.mesh, entry.indices[i], v);
           v.applyMatrix4(entry.mesh.matrixWorld);
           box.expandByPoint(v);
         }

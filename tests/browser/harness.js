@@ -15,14 +15,14 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const TMP = path.join(__dirname, '.tmp');
 const OUT = path.join(__dirname, 'out');
 
-const THREE_FILES = [
-  ['build/three.min.js', 'three.min.js'],
-  ['examples/js/controls/OrbitControls.js', 'OrbitControls.js'],
-  ['examples/js/loaders/GLTFLoader.js', 'GLTFLoader.js'],
-  ['examples/js/exporters/GLTFExporter.js', 'GLTFExporter.js'],
-  ['examples/js/utils/SkeletonUtils.js', 'SkeletonUtils.js'],
-  ['examples/js/libs/fflate.min.js', 'fflate.min.js'],
-  ['examples/js/loaders/FBXLoader.js', 'FBXLoader.js']
+// three.js dimuat sebagai modul, jadi yang disalin bukan lagi daftar
+// berkas lepas: build/ saling mengimpor (three.module.js menarik
+// three.core.js) dan addon di examples/jsm/ mengimpor 'three' lewat
+// import map plus berkas tetangganya. Menyalin kedua pohon itu utuh jauh
+// lebih tahan banting daripada menebak satu per satu.
+const THREE_DIRS = [
+  ['build', 'three/build'],
+  ['examples/jsm', 'three/examples/jsm']
 ];
 
 function copyDir(src, dst) {
@@ -35,18 +35,64 @@ function copyDir(src, dst) {
   }
 }
 
-/** Siapkan salinan situs yang memakai three.js lokal; kembalikan URL file://. */
+/**
+ * Letak paket three.js di disk.
+ *
+ * require.resolve('three/package.json') tidak bisa dipakai lagi: medan
+ * `exports` paket ini tidak mengekspos package.json, jadi sejak versi
+ * modul resolusinya melempar. Direktorinya dicari langsung, dan
+ * keberadaan build-nya yang dijadikan bukti paketnya benar terpasang.
+ */
 function resolveThree() {
-  try {
-    return path.dirname(require.resolve('three/package.json', { paths: [ROOT] }));
-  } catch (err) {
+  const dir = path.join(ROOT, 'node_modules', 'three');
+  if (!fs.existsSync(path.join(dir, 'build', 'three.module.js'))) {
     throw new Error('three.js belum terpasang — jalankan `npm install` lebih dulu.');
   }
+  return dir;
 }
 
-function buildSite() {
+/**
+ * Salin three.js ke dalam situs uji dan arahkan import map ke sana.
+ *
+ * Dipakai buildSite() dan buildStandaloneSite(): keduanya harus lepas
+ * dari jaringan, dan keduanya memuat three lewat import map yang sama.
+ */
+function vendorThree(html, dir) {
   const threeRoot = resolveThree();
+  for (const [from, to] of THREE_DIRS) {
+    const src = path.join(threeRoot, from);
+    if (!fs.existsSync(src)) throw new Error('Folder three.js tidak ditemukan: ' + src);
+    copyDir(src, path.join(dir, 'vendor', to));
+  }
+  // Dua entri import map: specifier 'three' menunjuk satu berkas,
+  // prefiks 'three/addons/' menunjuk sebuah folder.
+  //
+  // Awalan './' wajib. Import map hanya menerima alamat relatif yang
+  // dimulai dengan '/', './' atau '../'; 'vendor/...' polos dianggap
+  // specifier, entrinya jadi null, dan import 'three' gagal dengan
+  // "blocked by a null value".
+  return html
+    .replace(/"https:\/\/[^"]*\/three@[^"]*\/build\/three\.module\.js"/g,
+      '"./vendor/three/build/three.module.js"')
+    .replace(/"https:\/\/[^"]*\/three@[^"]*\/examples\/jsm\/"/g,
+      '"./vendor/three/examples/jsm/"');
+}
 
+/** Tidak boleh ada apa pun yang masih diambil dari jaringan. */
+function assertOffline(html) {
+  const left = (html.match(/src="https?:\/\/[^"]+"/g) || [])
+    .concat(html.match(/"https?:\/\/[^"]*three@[^"]*"/g) || []);
+  if (left.length) throw new Error('Masih ada berkas dari jaringan: ' + left.join(', '));
+}
+
+/*
+ * Sejak three dimuat sebagai modul ES, halamannya TIDAK BISA lagi dibuka
+ * lewat file://: modul tunduk pada CORS, dan berkas lokal beroperasi di
+ * origin 'null' sehingga setiap import diblokir. Jadi situs ujinya
+ * disajikan lewat HTTP lokal, persis seperti yang sudah dilakukan test
+ * video sejak awal.
+ */
+async function buildSite() {
   fs.rmSync(TMP, { recursive: true, force: true });
   fs.mkdirSync(path.join(TMP, 'vendor'), { recursive: true });
   fs.mkdirSync(OUT, { recursive: true });
@@ -55,13 +101,7 @@ function buildSite() {
   copyDir(path.join(ROOT, 'css'), path.join(TMP, 'css'));
 
   let html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  for (const [from, to] of THREE_FILES) {
-    const src = path.join(threeRoot, from);
-    if (!fs.existsSync(src)) throw new Error('File three.js tidak ditemukan: ' + src);
-    fs.copyFileSync(src, path.join(TMP, 'vendor', to));
-    // ganti URL CDN apa pun yang berakhir dengan nama file ini
-    html = html.replace(new RegExp('https://[^"\']*/' + to.replace('.', '\\.'), 'g'), 'vendor/' + to);
-  }
+  html = vendorThree(html, TMP);
   // Arahkan deteksi pose ke berkas lokal kalau tersedia.
   const mp = prepareMediaPipe(TMP);
   if (mp) {
@@ -71,10 +111,9 @@ function buildSite() {
 
   fs.writeFileSync(path.join(TMP, 'index.html'), html);
 
-  const remaining = html.match(/src="https?:\/\/[^"]+"/g);
-  if (remaining) throw new Error('Masih ada script dari jaringan: ' + remaining.join(', '));
+  assertOffline(html);
 
-  return 'file://' + path.join(TMP, 'index.html');
+  return (await serveDir(TMP)).url;
 }
 
 /**
@@ -82,8 +121,7 @@ function buildSite() {
  * hasil rakitan. Tidak ada css/ atau js/ yang perlu disalin; yang perlu
  * diarahkan ke lokal hanya tag CDN three.js.
  */
-function buildStandaloneSite() {
-  const threeRoot = resolveThree();
+async function buildStandaloneSite() {
   const dir = path.join(__dirname, '.tmp-standalone');
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(path.join(dir, 'vendor'), { recursive: true });
@@ -93,16 +131,12 @@ function buildStandaloneSite() {
   if (!fs.existsSync(file)) throw new Error('standalone.html belum dibuat — jalankan `npm run build`.');
   let html = fs.readFileSync(file, 'utf8');
 
-  for (const [from, to] of THREE_FILES) {
-    fs.copyFileSync(path.join(threeRoot, from), path.join(dir, 'vendor', to));
-    html = html.replace(new RegExp('https://[^"\']*/' + to.replace('.', '\\.'), 'g'), 'vendor/' + to);
-  }
+  html = vendorThree(html, dir);
   fs.writeFileSync(path.join(dir, 'index.html'), html);
 
-  const remaining = html.match(/src="https?:\/\/[^"]+"/g);
-  if (remaining) throw new Error('Masih ada script dari jaringan: ' + remaining.join(', '));
+  assertOffline(html);
 
-  return 'file://' + path.join(dir, 'index.html');
+  return (await serveDir(dir)).url;
 }
 
 /*
@@ -181,6 +215,10 @@ function serveDir(dir) {
     // path.join menormalkan '..', dan pemisah di akhir mencegah direktori
     // sebelah yang namanya berawalan sama ikut terbaca.
     if (!file.startsWith(dir + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+      // MFS_SERVE_DEBUG=1 menyebut berkas yang hilang. Tanpa ini, 404 cuma
+      // muncul sebagai "Failed to load resource" di konsol peramban, tanpa
+      // nama berkas — tidak bisa ditindaklanjuti.
+      if (process.env.MFS_SERVE_DEBUG) console.error('  [404] ' + rel);
       res.writeHead(404); res.end('not found'); return;
     }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
@@ -188,6 +226,9 @@ function serveDir(dir) {
   });
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {
+      // unref: servernya tidak menahan proses tetap hidup, jadi test yang
+      // tidak menutupnya sendiri tetap bisa keluar dengan bersih.
+      server.unref();
       resolve({
         url: 'http://127.0.0.1:' + server.address().port + '/',
         close: () => new Promise((r) => server.close(r))

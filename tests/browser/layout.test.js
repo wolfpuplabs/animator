@@ -53,7 +53,7 @@ const probe = (page) => page.evaluate(() => {
 });
 
 (async () => {
-  const url = buildSite();
+  const url = await buildSite();
 
   r.section('Berkas CSS');
   const css = fs.readFileSync(path.join(__dirname, '..', '..', 'css', 'style.css'), 'utf8');

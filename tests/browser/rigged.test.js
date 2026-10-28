@@ -14,7 +14,7 @@ const { buildSite, launch, createReporter, parseGLB, waitIdle, OUT } = require('
 const r = createReporter('Rigged');
 
 (async () => {
-  const url = buildSite();
+  const url = await buildSite();
   const browser = await launch();
   const page = await browser.newPage({ locale: 'id-ID', viewport: { width: 1440, height: 900 } });
 
@@ -83,7 +83,10 @@ const r = createReporter('Rigged');
 
     const exporter = new THREE.GLTFExporter();
     const buf = await new Promise((res, rej) => {
-      try { exporter.parse(root, res, { binary: true, animations: [new THREE.AnimationClip('wiggle', dur, tracks)] }); }
+      // GLTFExporter memakai parse(input, onDone, onError, options).
+      // Di tanda tangan lama options ada di slot ketiga; kalau salah,
+      // binary:true dan daftar animasinya diam-diam dibuang.
+      try { exporter.parse(root, res, rej, { binary: true, animations: [new THREE.AnimationClip('wiggle', dur, tracks)] }); }
       catch (err) { rej(err); }
     });
     const bytes = new Uint8Array(buf);

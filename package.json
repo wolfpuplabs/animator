@@ -12,6 +12,6 @@
   "devDependencies": {
     "@mediapipe/tasks-vision": "^0.10.18",
     "playwright": "^1.49.0",
-    "three": "0.128.0"
+    "three": "0.186.1"
   }
 }

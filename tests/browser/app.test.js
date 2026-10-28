@@ -11,7 +11,7 @@ const { buildSite, launch, createReporter, parseGLB, waitIdle, OUT } = require('
 const r = createReporter('App');
 
 (async () => {
-  const url = buildSite();
+  const url = await buildSite();
   const browser = await launch();
   const page = await browser.newPage({ locale: 'id-ID', viewport: { width: 1440, height: 900 } });
 

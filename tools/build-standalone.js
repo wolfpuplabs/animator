@@ -55,7 +55,9 @@ function build() {
   });
   if (scripts === 0) throw new Error('tidak ada <script src="js/..."> yang cocok di index.html');
 
-  const leftover = html.match(/(?:src|href)="(?!https?:)[^"]+"/g);
+  // data: URI sudah berisi datanya sendiri — justru itu yang diinginkan
+  // berkas tunggal, jadi bukan rujukan yang tertinggal.
+  const leftover = html.match(/(?:src|href)="(?!https?:|data:)[^"]+"/g);
   const external = (leftover || []).filter((m) => !m.includes('"#'));
   if (external.length) {
     throw new Error('masih ada rujukan berkas lokal: ' + external.join(', '));

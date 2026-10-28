@@ -13,7 +13,7 @@ const { buildStandaloneSite, launch, createReporter, parseGLB, waitIdle, OUT } =
 const r = createReporter('Standalone');
 
 (async () => {
-  const url = buildStandaloneSite();
+  const url = await buildStandaloneSite();
   const browser = await launch();
   const page = await browser.newPage({ locale: 'id-ID', viewport: { width: 1280, height: 800 } });
 
