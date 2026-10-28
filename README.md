@@ -111,6 +111,27 @@ Beberapa catatan praktis: satu orang saja di frame, seluruh badan
 terlihat, dan hindari potongan kamera. Sendi yang tertutup ditahan di
 rotasi terakhirnya, bukan dinolkan, supaya tidak menyentak.
 
+#### Kalau sosoknya keluar tapi diam
+
+Dua sebab yang gampang tertukar, dan dulu keduanya memberi pesan yang
+sama menyesatkan:
+
+**Videonya tidak bisa didekode peramban.** Berkas dengan codec yang tidak
+didukung — HEVC di `.mov` dari iPhone/iPad adalah kasus paling umum —
+tetap memicu `loadeddata` dan melaporkan durasi yang benar, tapi
+`videoWidth`-nya nol. Deteksi lalu jalan di atas frame kosong dan
+melaporkan "tidak ada orang terdeteksi", padahal isinya tidak pernah
+sampai ke detektor. Sekarang ukuran gambarnya diperiksa lebih dulu dan
+pesannya menyebut format. Jalan keluarnya: ekspor ulang jadi MP4 (H.264)
+atau WebM.
+
+**Orangnya memang nyaris tidak bergerak.** Klipnya sah — panjangnya
+benar, keyframe-nya penuh — tapi rotasinya konstan, jadi yang muncul
+patung. Itu tidak bisa dibedakan dari kegagalan hanya dengan melihat,
+jadi `stats.motionRange` mengukur simpangan rotasi terbesar di seluruh
+tulang; di bawah 8° aplikasi mengatakannya terus terang alih-alih
+menyerahkan sosok diam tanpa penjelasan.
+
 ### Alur dari motion capture
 
 Berkas FBX bisa dimuat langsung, jadi hasil perkakas motion capture bisa
@@ -444,6 +465,10 @@ orang apa adanya.
 - **Tinggi app memakai `dvh`.** Browser lama yang belum mengenalnya jatuh
   ke `100vh`, dan di sana bagian bawah halaman bisa tertutup toolbar
   browser pada ponsel/tablet.
+- **Codec video bergantung peramban, bukan aplikasi ini.** Deteksi
+  membaca video lewat elemen `<video>`, jadi apa pun yang tidak bisa
+  didekode peramban juga tidak bisa ditangkap di sini. HEVC/H.265 jalan
+  di Safari tapi sering tidak di Chrome desktop.
 - **Deteksi pose menebak rotasi tulang.** Yang diberikan deteksi adalah
   posisi sendi; twist di sepanjang tulang tidak terukur sama sekali dan
   hanya ditebak dari sumbu bahu atau pinggul. Satu orang per video, dan

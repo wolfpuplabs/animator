@@ -794,7 +794,9 @@ input[type="range"] {
       'video.failed': 'Deteksi pose gagal: {err}',
       'video.unsupported': 'Peramban ini tidak mendukung WebAssembly, jadi deteksi pose tidak bisa jalan.',
       'video.modelfail': 'Model deteksi gagal diunduh. Periksa koneksi lalu coba lagi.',
-      'video.quality': '{detected}/{total} frame terdeteksi pada {fps} fps · {held} sendi ditahan karena tertutup',
+      'video.quality': '{detected}/{total} frame terdeteksi pada {fps} fps · {held} sendi ditahan · simpangan gerak {deg}°',
+      'video.codec': 'Peramban ini tidak bisa mendekode video tersebut. Coba ekspor ulang jadi MP4 (H.264) atau WebM.',
+      'video.static': 'Orangnya terdeteksi, tapi gerakannya nyaris nol ({deg}°) — jadi sosoknya diam. Pastikan yang direkam memang bergerak dan seluruh badan terlihat.',
 
       'sec.clips': 'Animasi',
       'clip.filter': 'Cari animasi…',
@@ -934,7 +936,9 @@ input[type="range"] {
       'video.failed': 'Pose detection failed: {err}',
       'video.unsupported': 'This browser has no WebAssembly, so pose detection cannot run.',
       'video.modelfail': 'The detection model could not be downloaded. Check your connection and try again.',
-      'video.quality': '{detected}/{total} frames detected at {fps} fps · {held} joints held because they were occluded',
+      'video.quality': '{detected}/{total} frames detected at {fps} fps · {held} joints held · motion range {deg}°',
+      'video.codec': 'This browser cannot decode that video. Try exporting it again as MP4 (H.264) or WebM.',
+      'video.static': 'A person was detected, but there is almost no movement ({deg}°), so the figure stands still. Make sure the subject actually moves and the whole body is visible.',
 
       'sec.clips': 'Animations',
       'clip.filter': 'Search animations…',
@@ -1465,6 +1469,32 @@ input[type="range"] {
    * ------------------------------------------------------------------ */
 
   /**
+   * Simpangan rotasi terbesar di seluruh tulang, dalam derajat.
+   *
+   * Tangkapan yang sah tapi nyaris tak bergerak menghasilkan klip yang
+   * secara teknis benar — panjangnya pas, keyframe-nya penuh — tapi
+   * sosoknya diam. Tanpa angka ini tidak ada cara membedakannya dari
+   * kegagalan, dan pengguna cuma melihat patung.
+   */
+  function motionRange(tracks) {
+    var worst = 0;
+    tracks.forEach(function (track) {
+      if (track.type !== 'quaternion') return;
+      var n = Math.floor(track.values.length / 4);
+      if (n < 2) return;
+      var ref = track.values.slice(0, 4);
+      for (var i = 1; i < n; i++) {
+        var d = 0;
+        for (var k = 0; k < 4; k++) d += ref[k] * track.values[i * 4 + k];
+        d = Math.min(1, Math.abs(d));
+        var deg = 2 * Math.acos(d) * 180 / Math.PI;
+        if (deg > worst) worst = deg;
+      }
+    });
+    return worst;
+  }
+
+  /**
    * @param {Array} frames [{ time, landmarks:[{x,y,z,visibility}] }]
    * @param {Object} options lihat DEFAULTS
    */
@@ -1476,7 +1506,8 @@ input[type="range"] {
       bones: RIG.length,
       framesWithoutPose: 0,
       jointsBelowVisibility: 0,
-      bonesHeld: 0
+      bonesHeld: 0,
+      motionRange: 0   // simpangan rotasi terbesar, derajat
     };
 
     if (!frames || frames.length === 0) {
@@ -1576,6 +1607,8 @@ input[type="range"] {
       });
     });
 
+    stats.motionRange = motionRange(tracks);
+
     return { bones: bones, tracks: tracks, duration: stats.duration, stats: stats };
   }
 
@@ -1593,7 +1626,8 @@ input[type="range"] {
       restJointPositions: restJointPositions,
       buildRestSkeleton: buildRestSkeleton,
       normalize: normalize, cross: cross, dot: dot, sub: sub, mid: mid,
-      qMul: qMul, qConj: qConj, qNormalize: qNormalize, median: median
+      qMul: qMul, qConj: qConj, qNormalize: qNormalize, median: median,
+      motionRange: motionRange
     }
   };
 });
@@ -1882,10 +1916,22 @@ input[type="range"] {
       video.addEventListener('loadeddata', function () {
         if (done) return;
         done = true;
+        // Berkas dengan codec yang tidak didukung tetap memicu 'loadeddata'
+        // dan melaporkan durasi, tapi ukuran gambarnya nol. Tanpa
+        // pemeriksaan ini deteksi jalan di atas frame kosong dan hasilnya
+        // dilaporkan sebagai "tidak ada orang terdeteksi" — pesan yang
+        // menyesatkan, karena masalahnya format, bukan isi videonya.
+        if (!video.videoWidth || !video.videoHeight) {
+          reject(new Error('CODEC_TIDAK_DIDUKUNG'));
+          return;
+        }
         resolve(video);
       });
       video.addEventListener('error', function () {
-        reject(new Error('video tidak bisa dibaca'));
+        // Berkas rusak dan codec yang tidak didukung sama-sama buntu di
+        // sini, dan saran untuk pengguna sama: ekspor ulang ke format
+        // yang pasti bisa dibaca peramban.
+        reject(new Error('CODEC_TIDAK_DIDUKUNG'));
       });
       video.src = url;
       video.load();
@@ -4644,6 +4690,7 @@ input[type="range"] {
       setModel(rig.root, [rig.clip], file.name || 'capture');
       hideOverlay();
 
+      var moved = result.stats.motionRange;
       var percent = Math.round(capture.detected / capture.frames.length * 100);
       $('video-status').textContent = percent + '%';
       // Angka mentahnya disimpan di title: persen saja menyembunyikan
@@ -4652,20 +4699,29 @@ input[type="range"] {
         detected: capture.detected,
         total: capture.frames.length,
         fps: capture.sampleFps,
-        held: result.stats.bonesHeld
+        held: result.stats.bonesHeld,
+        deg: moved.toFixed(1)
       });
       if (percent < 60) {
         toast(tr('video.partial', { percent: percent }), true);
+      } else if (moved < 8) {
+        // Klipnya sah tapi sosoknya diam. Tanpa pesan ini yang terlihat
+        // cuma patung, dan itu terbaca seperti fitur yang rusak.
+        toast(tr('video.static', { deg: moved.toFixed(1) }), true);
       } else {
         toast(tr('video.done', { detected: capture.detected, total: capture.frames.length }));
       }
     }).catch(function (err) {
       hideOverlay();
-      console.error('Tangkap video gagal:', err);
+      // Sudah dilaporkan ke pengguna lewat toast, jadi ini sekadar jejak
+      // untuk diagnosa — bukan kesalahan yang tak tertangani.
+      console.warn('Tangkap video gagal:', err);
       var message = String(err && err.message || err);
       // Gagal memuat modul atau model terbaca sebagai kesalahan jaringan;
       // pesannya dibedakan supaya pengguna tahu harus berbuat apa.
-      if (/import|fetch|network|load|Failed/i.test(message) && !/video/i.test(message)) {
+      if (/CODEC_TIDAK_DIDUKUNG/.test(message)) {
+        toast(tr('video.codec'), true);
+      } else if (/import|fetch|network|load|Failed/i.test(message) && !/video/i.test(message)) {
         toast(tr('video.modelfail'), true);
       } else {
         toast(tr('video.failed', { err: message }), true);

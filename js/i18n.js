@@ -42,7 +42,9 @@
       'video.failed': 'Deteksi pose gagal: {err}',
       'video.unsupported': 'Peramban ini tidak mendukung WebAssembly, jadi deteksi pose tidak bisa jalan.',
       'video.modelfail': 'Model deteksi gagal diunduh. Periksa koneksi lalu coba lagi.',
-      'video.quality': '{detected}/{total} frame terdeteksi pada {fps} fps · {held} sendi ditahan karena tertutup',
+      'video.quality': '{detected}/{total} frame terdeteksi pada {fps} fps · {held} sendi ditahan · simpangan gerak {deg}°',
+      'video.codec': 'Peramban ini tidak bisa mendekode video tersebut. Coba ekspor ulang jadi MP4 (H.264) atau WebM.',
+      'video.static': 'Orangnya terdeteksi, tapi gerakannya nyaris nol ({deg}°) — jadi sosoknya diam. Pastikan yang direkam memang bergerak dan seluruh badan terlihat.',
 
       'sec.clips': 'Animasi',
       'clip.filter': 'Cari animasi…',
@@ -182,7 +184,9 @@
       'video.failed': 'Pose detection failed: {err}',
       'video.unsupported': 'This browser has no WebAssembly, so pose detection cannot run.',
       'video.modelfail': 'The detection model could not be downloaded. Check your connection and try again.',
-      'video.quality': '{detected}/{total} frames detected at {fps} fps · {held} joints held because they were occluded',
+      'video.quality': '{detected}/{total} frames detected at {fps} fps · {held} joints held · motion range {deg}°',
+      'video.codec': 'This browser cannot decode that video. Try exporting it again as MP4 (H.264) or WebM.',
+      'video.static': 'A person was detected, but there is almost no movement ({deg}°), so the figure stands still. Make sure the subject actually moves and the whole body is visible.',
 
       'sec.clips': 'Animations',
       'clip.filter': 'Search animations…',
