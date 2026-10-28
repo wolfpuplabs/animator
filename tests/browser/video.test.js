@@ -164,6 +164,51 @@ const r = H.createReporter('Video');
   r.check('animasi ikut terekspor',
     !!gltf && !!gltf.animations && gltf.animations.length > 0);
 
+  r.section('Sosoknya benar-benar bergerak di layar');
+  // Asersi yang dulu TIDAK ADA, dan karena itu bug ini lolos.
+  //
+  // three r128 hanya menerapkan skinning kalau material.skinning true, dan
+  // defaultnya false. GLTFLoader menyalakannya sendiri; material buatan
+  // tangan di posepipeline.js tidak. Akibatnya tulang berputar, klipnya
+  // benar, GLB-nya benar, dan SEMUA asersi di atas tetap lulus — tapi
+  // mesh-nya membeku di bind pose. Satu-satunya yang menangkapnya adalah
+  // membandingkan piksel yang benar-benar dirender pada waktu klip berbeda.
+  async function poseAt(fraction) {
+    await page.evaluate((f) => {
+      const tl = document.getElementById('timeline');
+      tl.value = String(Math.round(f * 1000));
+      tl.dispatchEvent(new Event('input', { bubbles: true }));
+      tl.dispatchEvent(new Event('change', { bubbles: true }));
+    }, fraction);
+    await page.waitForTimeout(600);
+    return (await page.locator('#canvas-host').screenshot()).toString('base64');
+  }
+
+  const frameA = await poseAt(0.05);
+  const frameB = await poseAt(0.55);
+  const pixelDelta = await page.evaluate(async (pair) => {
+    async function gray(b64) {
+      const img = new Image();
+      await new Promise(res => { img.onload = res; img.src = 'data:image/png;base64,' + b64; });
+      const c = document.createElement('canvas');
+      c.width = 160; c.height = 120;
+      const x = c.getContext('2d');
+      x.drawImage(img, 0, 0, 160, 120);
+      const d = x.getImageData(0, 0, 160, 120).data;
+      const g = new Float32Array(160 * 120);
+      for (let i = 0; i < g.length; i++) g[i] = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3;
+      return g;
+    }
+    const a = await gray(pair[0]), b = await gray(pair[1]);
+    let sum = 0;
+    for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+    return sum / a.length;
+  }, [frameA, frameB]);
+
+  r.info('beda piksel antar dua waktu klip: ' + pixelDelta.toFixed(2));
+  r.check('pose yang dirender berubah seiring waktu klip', pixelDelta > 1.0,
+    'beda ' + pixelDelta.toFixed(2) + ' — mesh kemungkinan membeku di bind pose');
+
   r.section('Video tanpa orang');
   const blank = await page.evaluate(async () => {
     const c = document.createElement('canvas');
