@@ -20,7 +20,9 @@ const THREE_FILES = [
   ['examples/js/controls/OrbitControls.js', 'OrbitControls.js'],
   ['examples/js/loaders/GLTFLoader.js', 'GLTFLoader.js'],
   ['examples/js/exporters/GLTFExporter.js', 'GLTFExporter.js'],
-  ['examples/js/utils/SkeletonUtils.js', 'SkeletonUtils.js']
+  ['examples/js/utils/SkeletonUtils.js', 'SkeletonUtils.js'],
+  ['examples/js/libs/fflate.min.js', 'fflate.min.js'],
+  ['examples/js/loaders/FBXLoader.js', 'FBXLoader.js']
 ];
 
 function copyDir(src, dst) {

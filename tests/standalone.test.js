@@ -45,8 +45,9 @@ test('isi engine benar-benar ikut ter-inline', function () {
 test('three.js tetap dari CDN (tidak ikut dibundel)', function () {
   const html = fs.readFileSync(OUTPUT, 'utf8');
   const cdn = html.match(/<script src="https:\/\/[^"]+"><\/script>/g) || [];
-  assert(cdn.length === 5, 'jumlah script CDN tidak seperti yang diharapkan: ' + cdn.length);
-  ['three.min.js', 'OrbitControls', 'GLTFLoader', 'GLTFExporter', 'SkeletonUtils']
+  assert(cdn.length === 7, 'jumlah script CDN tidak seperti yang diharapkan: ' + cdn.length);
+  ['three.min.js', 'OrbitControls', 'GLTFLoader', 'GLTFExporter', 'SkeletonUtils',
+   'fflate', 'FBXLoader']
     .forEach(function (name) {
       assert(cdn.some(function (tag) { return tag.indexOf(name) !== -1; }), name + ' hilang dari CDN');
     });

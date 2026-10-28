@@ -24,7 +24,7 @@
       'lang.title': 'Ganti bahasa',
 
       'sec.source': 'Sumber Animasi',
-      'drop.label': 'Taruh file .GLB / .GLTF',
+      'drop.label': 'Taruh file .GLB / .GLTF / .FBX',
       'drop.sub': 'atau klik untuk pilih file',
       'btn.demo': '🎮 Muat Demo (animasi sengaja patah)',
 
@@ -124,6 +124,8 @@
       'toast.loaded': 'Dimuat: {name}',
       'toast.noanim': 'Model dimuat, tapi tidak ada klip animasi di dalamnya.',
       'toast.loadfail': 'Gagal membaca file. Untuk .gltf dengan file terpisah, pakai .glb.',
+      'toast.fbxfail': 'Gagal membaca FBX. Berkas FBX biner versi 7 dan ASCII versi 7 ke atas yang didukung; FBX 6.x lama tidak.',
+      'toast.fbxmissing': 'Pemuat FBX gagal dimuat dari CDN. Muat ulang halaman, atau pakai .glb.',
       'toast.done': '{n} klip selesai dalam {ms} ms — tekan C untuk bandingkan A/B.',
       'toast.done.one': '1 klip selesai dalam {ms} ms — tekan C untuk bandingkan A/B.',
       'toast.reset': 'Kembali ke animasi original.',
@@ -146,7 +148,7 @@
       'lang.title': 'Switch language',
 
       'sec.source': 'Animation Source',
-      'drop.label': 'Drop a .GLB / .GLTF file',
+      'drop.label': 'Drop a .GLB / .GLTF / .FBX file',
       'drop.sub': 'or click to browse',
       'btn.demo': '🎮 Load demo (deliberately choppy)',
 
@@ -246,6 +248,8 @@
       'toast.loaded': 'Loaded: {name}',
       'toast.noanim': 'Model loaded, but it contains no animation clips.',
       'toast.loadfail': 'Could not read the file. For .gltf with separate files, use .glb instead.',
+      'toast.fbxfail': 'Could not read the FBX. Binary FBX 7 and ASCII FBX 7+ are supported; older FBX 6.x is not.',
+      'toast.fbxmissing': 'The FBX loader failed to load from the CDN. Reload the page, or use .glb instead.',
       'toast.done': '{n} clips done in {ms} ms — press C to compare A/B.',
       'toast.done.one': '1 clip done in {ms} ms — press C to compare A/B.',
       'toast.reset': 'Back to the original animation.',

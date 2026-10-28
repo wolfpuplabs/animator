@@ -33,6 +33,7 @@ Animasi terasa patah biasanya karena beberapa hal, dan semuanya ditangani:
 | Model berisi puluhan animasi, susah dipilah | — | Panel daftar animasi dengan pencarian |
 | Susah melihat apa yang berubah | — | Bayangan original, motion trail, tombol A/B |
 | Deformasi jelek di setiap frame | Bobot skin rusak, envelope bergerigi | Panel Skinning & Envelope |
+| Hasil mocap harus dikonversi dulu | Perkakas mocap mengekspor FBX | Muat .FBX langsung |
 
 ---
 
@@ -76,6 +77,34 @@ frame. Overshoot murni muncul saat gerakan berbelok.
 **5. Compact.** Hasil 120 fps itu indah tapi boros. Key yang bisa
 direkonstruksi ulang lewat interpolasi linear dalam batas error tertentu
 dibuang.
+
+### Alur dari motion capture
+
+Berkas FBX bisa dimuat langsung, jadi hasil perkakas motion capture bisa
+masuk ke sini tanpa dikonversi lebih dulu. Contohnya
+[RGB MoCap](https://github.com/toyxyz/toyxyz_RGBMocap), yang mengubah
+video jadi animasi humanoid dan mengekspornya sebagai FBX:
+
+```
+video → RGB MoCap (Windows, GPU) → FBX → MFS 5 → GLB
+```
+
+Keduanya saling melengkapi, bukan tumpang tindih. RGB MoCap mengerjakan
+rekonstruksi 3D dari video dan retargeting ke karakter. Yang tersisa pada
+hasil mocap justru yang ditangani di sini: getaran per-frame, kurva yang
+di-bake rapat tanpa bentuk, gerakan yang kaku tanpa follow-through, dan
+bobot skin yang perlu dirapikan setelah retargeting.
+
+Satu catatan arah: **RGB MoCap tidak berjalan di dalam halaman ini.** Ia
+aplikasi desktop Windows dengan PyTorch CUDA dan butuh sekitar 45 GB;
+yang dijembatani di sini adalah berkasnya, bukan proses AI-nya. Export
+dari sini keluar sebagai GLB atau JSON — three.js tidak punya eksporter
+FBX, jadi untuk kembali ke FBX perlu konversi di Blender.
+
+Dukungan FBX mengikuti pemuat three.js: FBX biner versi 7 dan ASCII versi
+7 ke atas. FBX 6.x lama tidak terbaca. Tekstur yang disimpan sebagai
+berkas terpisah di sebelah FBX juga tidak ikut, karena berkasnya dibaca
+lewat object URL tanpa berkas tetangga.
 
 ### Daftar animasi
 
@@ -302,6 +331,14 @@ besar-kecil: `innerText` mengembalikan teks setelah `text-transform`, jadi
 judul seksi yang di-CSS jadi huruf besar akan lolos dari pemindai yang
 case-sensitive.
 
+`tests/browser/scale.test.js` memuat model setinggi 0,05 / 2 / 160 / 5000
+unit dan memeriksa dari piksel bahwa semuanya terlihat, di tengah, dan
+berproporsi wajar. Tanpa penskalaan skena, dua ukuran terbesar menghasilkan
+**0,000% piksel terang** — tak terlihat sama sekali. Berkas Mixamo tidak
+bisa disertakan karena lisensinya, jadi berkas uji dibuat sendiri dan
+pengkabelan FBX diperiksa lewat rutenya: berkas .fbx rusak harus memberi
+pesan khusus FBX, bukan pesan glTF.
+
 `tests/browser/layout.test.js` memuat halaman di delapan ukuran layar dan
 memastikan transport bar tidak pernah terdorong keluar layar dan kanvas
 tidak pernah mengecil jadi nol. Kondisi toolbar browser tidak bisa ditiru
@@ -319,6 +356,12 @@ orang apa adanya.
 - **`.gltf` dengan file terpisah tidak bisa dimuat.** Berkas dibaca lewat
   object URL, jadi referensi ke `.bin` dan tekstur di sebelahnya tidak
   ter-resolve. Pakai `.glb`.
+- **Skena menyesuaikan ukuran model.** Kabut, grid, lantai, dan kamera
+  bayangan dihitung dari kotak batas model, bukan dari nilai tetap.
+  Berkas dunia nyata datang dalam satuan apa saja — FBX mocap umumnya
+  sentimeter, jadi karakter 1,6 meter masuk sebagai 160 unit. Dengan
+  kabut tetap 18–55 unit, model sejauh itu dirender persis warna latar
+  dan viewport tampak kosong padahal framing-nya benar.
 - **Ukuran kanvas disetel eksplisit, bukan diserahkan ke atribut.**
   `renderer.setSize(w, h)` harus dibiarkan memperbarui gaya CSS kanvas.
   Dengan argumen ketiga `false`, three hanya menyetel atribut
