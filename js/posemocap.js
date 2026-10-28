@@ -343,6 +343,32 @@
    * ------------------------------------------------------------------ */
 
   /**
+   * Simpangan rotasi terbesar di seluruh tulang, dalam derajat.
+   *
+   * Tangkapan yang sah tapi nyaris tak bergerak menghasilkan klip yang
+   * secara teknis benar — panjangnya pas, keyframe-nya penuh — tapi
+   * sosoknya diam. Tanpa angka ini tidak ada cara membedakannya dari
+   * kegagalan, dan pengguna cuma melihat patung.
+   */
+  function motionRange(tracks) {
+    var worst = 0;
+    tracks.forEach(function (track) {
+      if (track.type !== 'quaternion') return;
+      var n = Math.floor(track.values.length / 4);
+      if (n < 2) return;
+      var ref = track.values.slice(0, 4);
+      for (var i = 1; i < n; i++) {
+        var d = 0;
+        for (var k = 0; k < 4; k++) d += ref[k] * track.values[i * 4 + k];
+        d = Math.min(1, Math.abs(d));
+        var deg = 2 * Math.acos(d) * 180 / Math.PI;
+        if (deg > worst) worst = deg;
+      }
+    });
+    return worst;
+  }
+
+  /**
    * @param {Array} frames [{ time, landmarks:[{x,y,z,visibility}] }]
    * @param {Object} options lihat DEFAULTS
    */
@@ -354,7 +380,8 @@
       bones: RIG.length,
       framesWithoutPose: 0,
       jointsBelowVisibility: 0,
-      bonesHeld: 0
+      bonesHeld: 0,
+      motionRange: 0   // simpangan rotasi terbesar, derajat
     };
 
     if (!frames || frames.length === 0) {
@@ -454,6 +481,8 @@
       });
     });
 
+    stats.motionRange = motionRange(tracks);
+
     return { bones: bones, tracks: tracks, duration: stats.duration, stats: stats };
   }
 
@@ -471,7 +500,8 @@
       restJointPositions: restJointPositions,
       buildRestSkeleton: buildRestSkeleton,
       normalize: normalize, cross: cross, dot: dot, sub: sub, mid: mid,
-      qMul: qMul, qConj: qConj, qNormalize: qNormalize, median: median
+      qMul: qMul, qConj: qConj, qNormalize: qNormalize, median: median,
+      motionRange: motionRange
     }
   };
 });

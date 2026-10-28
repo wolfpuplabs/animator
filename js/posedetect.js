@@ -96,10 +96,22 @@
       video.addEventListener('loadeddata', function () {
         if (done) return;
         done = true;
+        // Berkas dengan codec yang tidak didukung tetap memicu 'loadeddata'
+        // dan melaporkan durasi, tapi ukuran gambarnya nol. Tanpa
+        // pemeriksaan ini deteksi jalan di atas frame kosong dan hasilnya
+        // dilaporkan sebagai "tidak ada orang terdeteksi" — pesan yang
+        // menyesatkan, karena masalahnya format, bukan isi videonya.
+        if (!video.videoWidth || !video.videoHeight) {
+          reject(new Error('CODEC_TIDAK_DIDUKUNG'));
+          return;
+        }
         resolve(video);
       });
       video.addEventListener('error', function () {
-        reject(new Error('video tidak bisa dibaca'));
+        // Berkas rusak dan codec yang tidak didukung sama-sama buntu di
+        // sini, dan saran untuk pengguna sama: ekspor ulang ke format
+        // yang pasti bisa dibaca peramban.
+        reject(new Error('CODEC_TIDAK_DIDUKUNG'));
       });
       video.src = url;
       video.load();

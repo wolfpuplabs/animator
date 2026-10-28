@@ -367,5 +367,32 @@ test('setiap tulang punya induk yang benar-benar ada', function () {
   });
 });
 
+test('orang diam memberi simpangan gerak kecil', function () {
+  var res = P.build(frames(20), {});
+  assert(res.stats.motionRange < 1,
+    'seharusnya nyaris nol, dapat ' + res.stats.motionRange.toFixed(2));
+});
+
+test('lengan berayun memberi simpangan gerak besar', function () {
+  // lengan kiri turun dari mendatar ke bawah sepanjang klip
+  var res = P.build(frames(20, function (i) {
+    var a = (i / 19) * Math.PI / 2;
+    return {
+      leftElbow: [0.18 + 0.27 * Math.cos(a), -0.5 + 0.27 * Math.sin(a), 0],
+      leftWrist: [0.18 + 0.52 * Math.cos(a), -0.5 + 0.52 * Math.sin(a), 0],
+      leftIndex: [0.18 + 0.60 * Math.cos(a), -0.5 + 0.60 * Math.sin(a), 0]
+    };
+  }), {});
+  assert(res.stats.motionRange > 45,
+    'ayunan 90 derajat seharusnya terbaca besar, dapat ' + res.stats.motionRange.toFixed(2));
+});
+
+test('simpangan gerak selalu berupa angka terhingga', function () {
+  [P.build([], {}), P.build(frames(1), {}), P.build(frames(20), {})].forEach(function (res) {
+    assert(typeof res.stats.motionRange === 'number' && isFinite(res.stats.motionRange),
+      'motionRange bukan angka terhingga: ' + res.stats.motionRange);
+  });
+});
+
 console.log('\n' + (failed === 0 ? '✅ ' : '❌ ') + passed + ' passed, ' + failed + ' failed\n');
 if (failed) { failures.forEach(function (f) { console.log('  - ' + f); }); process.exit(1); }

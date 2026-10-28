@@ -207,6 +207,29 @@ const r = H.createReporter('Video');
     /terdeteksi|detected/i.test(blankToast), blankToast);
   r.check('aplikasi tetap hidup', await page.locator('#canvas-host canvas').count() === 1);
 
+  r.section('Video yang tidak bisa didekode');
+  // Berkas dengan codec yang tidak didukung tetap memicu 'loadeddata' dan
+  // melaporkan durasi, tapi videoWidth-nya nol. Dulu deteksi tetap jalan di
+  // atas frame kosong lalu melapor "tidak ada orang terdeteksi" — pesan yang
+  // menyesatkan, karena masalahnya format. Berkas uji dibuat dari header MP4
+  // yang sah dengan isi sampah, jadi tidak ada berkas yang perlu ikut repo.
+  const bogus = Buffer.concat([
+    Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypmp42'),
+    Buffer.from([0, 0, 0, 0]), Buffer.from('mp42isom'),
+    Buffer.alloc(4096, 0x41)
+  ]);
+  await page.setInputFiles('#video-input',
+    { name: 'rusak.mp4', mimeType: 'video/mp4', buffer: bogus });
+  await page.waitForFunction(
+    () => !document.getElementById('overlay').classList.contains('active'),
+    null, { timeout: 60000 });
+  await page.waitForTimeout(800);
+  const codecToast = await page.locator('#toast').textContent();
+  r.info('pesan: ' + codecToast);
+  r.check('video tak terdekode memberi pesan format, bukan "tidak ada orang"',
+    /dekode|decode|MP4|WebM/i.test(codecToast) && !/terdeteksi di video|detected in this video/i.test(codecToast),
+    codecToast);
+
   r.section('Video kedua di sesi yang sama');
   // MediaPipe mode VIDEO menolak timestamp yang tidak naik. Tanpa
   // penghitung yang terus maju, video kedua gagal total tanpa pesan.

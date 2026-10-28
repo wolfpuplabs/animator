@@ -867,6 +867,7 @@
       setModel(rig.root, [rig.clip], file.name || 'capture');
       hideOverlay();
 
+      var moved = result.stats.motionRange;
       var percent = Math.round(capture.detected / capture.frames.length * 100);
       $('video-status').textContent = percent + '%';
       // Angka mentahnya disimpan di title: persen saja menyembunyikan
@@ -875,20 +876,29 @@
         detected: capture.detected,
         total: capture.frames.length,
         fps: capture.sampleFps,
-        held: result.stats.bonesHeld
+        held: result.stats.bonesHeld,
+        deg: moved.toFixed(1)
       });
       if (percent < 60) {
         toast(tr('video.partial', { percent: percent }), true);
+      } else if (moved < 8) {
+        // Klipnya sah tapi sosoknya diam. Tanpa pesan ini yang terlihat
+        // cuma patung, dan itu terbaca seperti fitur yang rusak.
+        toast(tr('video.static', { deg: moved.toFixed(1) }), true);
       } else {
         toast(tr('video.done', { detected: capture.detected, total: capture.frames.length }));
       }
     }).catch(function (err) {
       hideOverlay();
-      console.error('Tangkap video gagal:', err);
+      // Sudah dilaporkan ke pengguna lewat toast, jadi ini sekadar jejak
+      // untuk diagnosa — bukan kesalahan yang tak tertangani.
+      console.warn('Tangkap video gagal:', err);
       var message = String(err && err.message || err);
       // Gagal memuat modul atau model terbaca sebagai kesalahan jaringan;
       // pesannya dibedakan supaya pengguna tahu harus berbuat apa.
-      if (/import|fetch|network|load|Failed/i.test(message) && !/video/i.test(message)) {
+      if (/CODEC_TIDAK_DIDUKUNG/.test(message)) {
+        toast(tr('video.codec'), true);
+      } else if (/import|fetch|network|load|Failed/i.test(message) && !/video/i.test(message)) {
         toast(tr('video.modelfail'), true);
       } else {
         toast(tr('video.failed', { err: message }), true);
