@@ -25,6 +25,7 @@
     floor: null,
     ghost: { root: null, mixer: null, action: null, material: null },
     skinReport: null,
+    captureStats: null,
     presetName: 'balanced',
     clipFilter: ''
   };
@@ -807,6 +808,95 @@
   }
 
   /* ================================================================== *
+   * Tangkap dari video
+   * ================================================================== */
+
+  /**
+   * Video -> titik sendi -> rig beranimasi.
+   *
+   * Hasilnya sengaja diperlakukan seperti berkas yang diunggah: begitu
+   * rig-nya jadi, seluruh pipeline yang sudah ada berlaku — daftar klip,
+   * enhance, perbaikan skin, export.
+   */
+  function captureFromVideo(file) {
+    if (!PoseDetect.isSupported()) {
+      toast(tr('video.unsupported'), true);
+      return;
+    }
+
+    state.fileName = (file.name || 'capture').replace(/\.[^/.]+$/, '') || 'capture';
+    showOverlay(tr('overlay.loading'), tr('video.loading'));
+
+    var fps = parseInt($('opt-video-fps').value, 10) || 24;
+
+    PoseDetect.captureFromVideo(file, {
+      fps: fps,
+      onProgress: function (done, total) {
+        $('overlay-sub').textContent = tr('video.scanning', { done: done, total: total });
+      }
+    }).then(function (capture) {
+      if (!capture.detected) {
+        hideOverlay();
+        toast(tr('video.none'), true);
+        return;
+      }
+
+      $('overlay-sub').textContent = tr('video.building');
+
+      // Satuan MediaPipe adalah meter dengan titik asal di antara pinggul.
+      // Dibiarkan apa adanya: penskalaan skena sudah mengikuti ukuran model.
+      var result = PoseMocap.build(capture.frames, {});
+      var rig = PosePipeline.buildRig(result, {
+        name: state.fileName,
+        clipName: 'Capture'
+      });
+
+      if (!rig) {
+        hideOverlay();
+        toast(tr('video.none'), true);
+        return;
+      }
+
+      state.captureStats = {
+        detected: capture.detected,
+        total: capture.frames.length,
+        sampleFps: capture.sampleFps,
+        pose: result.stats
+      };
+
+      setModel(rig.root, [rig.clip], file.name || 'capture');
+      hideOverlay();
+
+      var percent = Math.round(capture.detected / capture.frames.length * 100);
+      $('video-status').textContent = percent + '%';
+      // Angka mentahnya disimpan di title: persen saja menyembunyikan
+      // sendi yang ditahan, dan itu yang menjelaskan gerakan yang kaku.
+      $('video-status').title = tr('video.quality', {
+        detected: capture.detected,
+        total: capture.frames.length,
+        fps: capture.sampleFps,
+        held: result.stats.bonesHeld
+      });
+      if (percent < 60) {
+        toast(tr('video.partial', { percent: percent }), true);
+      } else {
+        toast(tr('video.done', { detected: capture.detected, total: capture.frames.length }));
+      }
+    }).catch(function (err) {
+      hideOverlay();
+      console.error('Tangkap video gagal:', err);
+      var message = String(err && err.message || err);
+      // Gagal memuat modul atau model terbaca sebagai kesalahan jaringan;
+      // pesannya dibedakan supaya pengguna tahu harus berbuat apa.
+      if (/import|fetch|network|load|Failed/i.test(message) && !/video/i.test(message)) {
+        toast(tr('video.modelfail'), true);
+      } else {
+        toast(tr('video.failed', { err: message }), true);
+      }
+    });
+  }
+
+  /* ================================================================== *
    * Enhance
    * ================================================================== */
 
@@ -1405,6 +1495,25 @@
     window.addEventListener('drop', function (e) { e.preventDefault(); });
 
     $('btn-demo').addEventListener('click', buildDemo);
+
+    var videoZone = $('video-dropzone');
+    videoZone.addEventListener('click', function () { $('video-input').click(); });
+    $('video-input').addEventListener('change', function (e) {
+      if (e.target.files && e.target.files.length) captureFromVideo(e.target.files[0]);
+      e.target.value = '';
+    });
+    ['dragenter', 'dragover'].forEach(function (evt) {
+      videoZone.addEventListener(evt, function (e) { e.preventDefault(); videoZone.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(function (evt) {
+      videoZone.addEventListener(evt, function (e) { e.preventDefault(); videoZone.classList.remove('dragover'); });
+    });
+    videoZone.addEventListener('drop', function (e) {
+      if (e.dataTransfer && e.dataTransfer.files.length) captureFromVideo(e.dataTransfer.files[0]);
+    });
+    $('opt-video-fps').addEventListener('input', function (e) {
+      $('val-video-fps').textContent = e.target.value + ' fps';
+    });
     $('btn-lang').addEventListener('click', function () { applyLanguage(I18n.other()); });
 
     $('clip-filter').addEventListener('input', function (e) {

@@ -39,10 +39,15 @@ const r = createReporter('App');
   await page.waitForTimeout(600);
   r.check('pause benar-benar menghentikan waktu', p1 === (await page.locator('#time-display').textContent()));
 
+  // Stop menggulung waktu tapi tidak menghentikan playback, jadi labelnya
+  // dibaca di evaluate yang sama dengan kliknya — kalau tidak, render loop
+  // sudah memajukan waktu lagi sebelum Playwright selesai membaca.
   await page.locator('#btn-play').click();
-  await page.locator('#btn-stop').click();
-  const afterStop = parseFloat(await page.locator('#time-display').textContent());
-  r.check('stop kembali ke awal', afterStop < 0.25, String(afterStop));
+  const afterStop = await page.evaluate(() => {
+    document.getElementById('btn-stop').click();
+    return parseFloat(document.getElementById('time-display').textContent);
+  });
+  r.check('stop kembali ke awal', afterStop === 0, String(afterStop));
 
   // Handler scrub sendiri yang menulis label waktunya, jadi baca langsung
   // supaya tidak balapan dengan render loop.

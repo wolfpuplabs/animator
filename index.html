@@ -33,6 +33,27 @@
         <button id="btn-demo" data-i18n="btn.demo">&#127918; Muat Demo (animasi sengaja patah)</button>
       </div>
 
+      <div class="section" id="video-section">
+        <div class="section-title">
+          <span class="step">&#127909;</span> <span data-i18n="sec.video">Tangkap dari Video</span>
+          <span class="clip-count" id="video-status"></span>
+        </div>
+        <div class="dropzone compact" id="video-dropzone">
+          <div class="icon">&#127916;</div>
+          <div class="label" data-i18n="video.label">Taruh file video</div>
+          <div class="sub" data-i18n="video.sub">MP4, WebM, MOV &middot; satu orang di frame</div>
+          <input type="file" id="video-input" accept="video/*">
+        </div>
+        <div class="control">
+          <div class="control-head">
+            <span data-i18n="video.fps">Sample rate deteksi</span>
+            <span class="val" id="val-video-fps">24 fps</span>
+          </div>
+          <input type="range" id="opt-video-fps" min="8" max="30" step="1" value="24">
+          <div class="control-note" data-i18n="note.video">Deteksi memberi posisi sendi, bukan rotasi tulang. Hasilnya kasar &mdash; untuk previz, bukan pengganti mocap sungguhan.</div>
+        </div>
+      </div>
+
       <div class="section" id="clip-section" style="display:none">
         <div class="section-title">
           <span class="step">&#9835;</span> <span data-i18n="sec.clips">Animasi</span>
@@ -185,6 +206,9 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/posemocap.js"></script>
+  <script src="js/posepipeline.js"></script>
+  <script src="js/posedetect.js"></script>
   <script src="js/fluidizer.js"></script>
   <script src="js/skinfix.js"></script>
   <script src="js/three-adapter.js"></script>
