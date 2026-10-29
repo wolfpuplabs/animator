@@ -26,6 +26,8 @@
     ghost: { root: null, mixer: null, action: null, material: null },
     skinReport: null,
     captureStats: null,
+    capture: null,        // hasil PoseMocap terakhir, untuk diterapkan ulang
+    modelSource: null,    // 'demo' | 'file' | 'capture'
     presetName: 'balanced',
     clipFilter: ''
   };
@@ -536,6 +538,7 @@
     ]);
 
     state.fileName = 'demo_hopper';
+    state.modelSource = 'demo';
     setModel(group, [clip], tr('demo.name'));
   }
 
@@ -558,7 +561,10 @@
     // sebelum model itu dibuang.
     clearGhost();
     $('opt-ghost').checked = false;
-    if (state.root) {
+    // Retarget menambahkan klip ke model yang SEDANG dimuat, jadi setModel
+    // bisa dipanggil dengan root yang sama. Membuangnya di situ berarti
+    // menghancurkan geometri yang sedang dipakai.
+    if (state.root && state.root !== root) {
       state.scene.remove(state.root);
       disposeObject(state.root);
     }
@@ -817,10 +823,12 @@
         return;
       }
       if (!clips.length) {
+        state.modelSource = 'file';
         setModel(root, [], file.name);
         toast(tr('toast.noanim'), true);
         return;
       }
+      state.modelSource = 'file';
       setModel(root, clips, file.name);
     }, function (evt) {
       if (evt && evt.lengthComputable) {
@@ -845,6 +853,42 @@
    * rig-nya jadi, seluruh pipeline yang sudah ada berlaku — daftar klip,
    * enhance, perbaikan skin, export.
    */
+  /**
+   * Terapkan tangkapan ke rig model yang sedang dimuat.
+   *
+   * Mengembalikan false kalau tidak ada model yang cocok — penanganan
+   * cadangannya (membuat sosok batang) ditangani pemanggil.
+   */
+  function applyCaptureToLoadedModel(result, label) {
+    if (state.modelSource !== 'file' || !state.root) return false;
+    var skeleton = Retarget.findSkeleton(state.root);
+    if (!skeleton) {
+      toast(tr('retarget.noskel'), true);
+      return false;
+    }
+
+    var out = Retarget.retarget(result, skeleton, { clipName: 'Capture' });
+    if (!out || !out.clip) {
+      var count = out ? out.matched.length : 0;
+      toast(tr('retarget.nomatch', { matched: count }), true);
+      return false;
+    }
+
+    // Klipnya DITAMBAHKAN, bukan menggantikan: animasi asli model tetap
+    // ada supaya bisa dibandingkan, dan klip tangkapan jadi yang terpilih.
+    var clips = state.originalClips.concat([out.clip]);
+    var root = state.root;
+    setModel(root, clips, label);
+    state.modelSource = 'file';
+    selectClip(clips.length - 1);
+
+    var miss = out.missing.length
+      ? tr('retarget.partial', { matched: out.matched.length, missing: out.missing.join(', ') })
+      : tr('retarget.done', { matched: out.matched.length });
+    toast(miss, out.missing.length > 0);
+    return true;
+  }
+
   function captureFromVideo(file) {
     if (!PoseDetect.isSupported()) {
       toast(tr('video.unsupported'), true);
@@ -890,8 +934,17 @@
         sampleFps: capture.sampleFps,
         pose: result.stats
       };
+      state.capture = result;
 
-      setModel(rig.root, [rig.clip], file.name || 'capture');
+      // Kalau pengguna sudah memuat karakternya sendiri, gerakannya
+      // dipindahkan ke situ — itu yang sebenarnya diinginkan orang saat
+      // menangkap dari video. Sosok batang cuma cadangan saat tidak ada
+      // model, atau saat rig-nya tidak bisa dicocokkan.
+      var applied = applyCaptureToLoadedModel(result, file.name || 'capture');
+      if (!applied) {
+        state.modelSource = 'capture';
+        setModel(rig.root, [rig.clip], file.name || 'capture');
+      }
       hideOverlay();
 
       var moved = result.stats.motionRange;
@@ -912,7 +965,10 @@
         // Klipnya sah tapi sosoknya diam. Tanpa pesan ini yang terlihat
         // cuma patung, dan itu terbaca seperti fitur yang rusak.
         toast(tr('video.static', { deg: moved.toFixed(1) }), true);
-      } else {
+      } else if (!applied) {
+        // Saat tangkapan berhasil dipindahkan ke model pengguna, pesan
+        // yang berguna adalah berapa tulang yang tercocok — itu sudah
+        // ditampilkan applyCaptureToLoadedModel, jadi jangan ditimpa.
         toast(tr('video.done', { detected: capture.detected, total: capture.frames.length }));
       }
     }).catch(function (err) {

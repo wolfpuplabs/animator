@@ -149,6 +149,50 @@ jadi `stats.motionRange` mengukur simpangan rotasi terbesar di seluruh
 tulang; di bawah 8° aplikasi mengatakannya terus terang alih-alih
 menyerahkan sosok diam tanpa penjelasan.
 
+### Memindahkan tangkapan ke model sendiri
+
+Kalau karakter sudah dimuat lebih dulu, video yang dijatuhkan setelahnya
+TIDAK menggantikannya: gerakannya dipindahkan ke rig karakter itu, dan
+klip tangkapan ditambahkan di samping klip bawaannya. Sosok batang cuma
+cadangan untuk saat tidak ada model, atau saat rig-nya tidak bisa
+dicocokkan.
+
+Yang membuat ini mungkin: `posemocap.js` tidak menyimpan orientasi tulang
+apa adanya, melainkan SIMPANGANNYA DARI POSE REST. Orientasi mentah
+terikat pada proporsi dan sumbu rig asalnya; simpangan dari rest
+("putar lengan 40° dari posisi diamnya") berlaku di rig mana pun yang
+pose rest-nya sebanding.
+
+```
+D_sumber = orientasi dunia relatif rest, diakumulasi dari track lokal
+W_target = D_sumber · R_rest_target
+lokal    = W_induk⁻¹ · W_target
+```
+
+Pose rest target dibaca dari `skeleton.boneInverses`, bukan dari pose
+tulang saat itu — kalau tidak, klip yang kebetulan sedang diputar ikut
+terbaca sebagai pose rest dan seluruh hasilnya miring.
+
+Nama tulang dicocokkan otomatis. Nama dipecah jadi token (termasuk batas
+camelCase), token penanda perkakas dibuang (`mixamorig`, `Bip01`, `J_Bip`,
+`DEF`, `ORG`), penanda sisi dipisahkan (`L`/`R`/`Left`/`Right`), lalu
+sisanya dicocokkan ke 15 tulang dasar. Jadi `mixamorig:LeftArm`,
+`J_Bip_L_UpperArm`, `upper_arm.L`, dan `Bip01_L_UpperArm` semuanya
+mengarah ke tulang yang sama. Tulang jari seperti `LeftHandIndex1`
+sengaja TIDAK dicocokkan: salah cocok jauh lebih merusak daripada tidak
+cocok — jari yang terbaca sebagai telapak tangan akan memuntir seluruh
+lengan.
+
+Perpindahan pinggul diskalakan dengan rasio panjang tungkai target
+terhadap sumber, supaya karakter kecil tidak melayang dan yang besar
+tidak terseret.
+
+Dua batas yang perlu diketahui. Pertama, hasilnya mewarisi semua
+keterbatasan deteksi pose di atas — twist tetap tebakan. Kedua, rig yang
+pose rest-nya jauh berbeda (A-pose ekstrem, atau sumbu hadap berbeda)
+akan meleset, karena yang dipindahkan simpangan dari rest, bukan pose
+absolut.
+
 ### Alur dari motion capture
 
 Berkas FBX bisa dimuat langsung, jadi hasil perkakas motion capture bisa
@@ -305,6 +349,7 @@ js/skinfix.js               perbaikan bobot skin & envelope (juga tanpa dependen
 js/i18n.js                  kamus dan pengalih bahasa
 js/posemocap.js             titik sendi → rotasi tulang (tanpa dependensi)
 js/posepipeline.js          rig three.js dari keluaran posemocap
+js/retarget.js              pindahkan tangkapan ke rig model lain
 js/posedetect.js            jembatan ke MediaPipe Pose
 js/three-adapter.js         jembatan THREE.AnimationClip ↔ engine
 js/app.js                   viewer, kontrol, export
@@ -314,6 +359,7 @@ tests/fluidizer.test.js     unit test engine animasi
 tests/skinfix.test.js       unit test perbaikan skin
 tests/posemocap.test.js     unit test retargeting pose
 tests/posepipeline.test.js  penjaga rig hasil tangkapan (termasuk material.skinning)
+tests/retarget.test.js      penjaga pencocokan nama tulang & matematika retarget
 tests/i18n.test.js          penjaga paritas kamus dua bahasa
 tests/standalone.test.js    penjaga sinkronisasi berkas rakitan
 tests/browser/              test end-to-end di browser sungguhan
