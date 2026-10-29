@@ -44,6 +44,10 @@
       'video.modelfail': 'Model deteksi gagal diunduh. Periksa koneksi lalu coba lagi.',
       'video.quality': '{detected}/{total} frame terdeteksi pada {fps} fps · {held} sendi ditahan · simpangan gerak {deg}°',
       'video.codec': 'Peramban ini tidak bisa mendekode video tersebut. Coba ekspor ulang jadi MP4 (H.264) atau WebM.',
+      'retarget.done': 'Gerakan dipindahkan ke model kamu — {matched} tulang tercocok.',
+      'retarget.partial': 'Gerakan dipindahkan, {matched} tulang tercocok. Tidak ketemu: {missing}.',
+      'retarget.nomatch': 'Rig model ini tidak bisa dicocokkan ({matched} tulang terbaca), jadi gerakannya ditampilkan pada sosok batang.',
+      'retarget.noskel': 'Model yang dimuat tidak punya tulang, jadi gerakannya ditampilkan pada sosok batang.',
       'video.static': 'Orangnya terdeteksi, tapi gerakannya nyaris nol ({deg}°) — jadi sosoknya diam. Pastikan yang direkam memang bergerak dan seluruh badan terlihat.',
 
       'sec.clips': 'Animasi',
@@ -186,6 +190,10 @@
       'video.modelfail': 'The detection model could not be downloaded. Check your connection and try again.',
       'video.quality': '{detected}/{total} frames detected at {fps} fps · {held} joints held · motion range {deg}°',
       'video.codec': 'This browser cannot decode that video. Try exporting it again as MP4 (H.264) or WebM.',
+      'retarget.done': 'Motion transferred to your model — {matched} bones matched.',
+      'retarget.partial': 'Motion transferred, {matched} bones matched. Not found: {missing}.',
+      'retarget.nomatch': 'This rig could not be matched ({matched} bones recognised), so the motion is shown on a stick figure.',
+      'retarget.noskel': 'The loaded model has no bones, so the motion is shown on a stick figure.',
       'video.static': 'A person was detected, but there is almost no movement ({deg}°), so the figure stands still. Make sure the subject actually moves and the whole body is visible.',
 
       'sec.clips': 'Animations',
