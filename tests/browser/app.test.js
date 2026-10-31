@@ -132,8 +132,17 @@ const r = createReporter('App');
   const jsonPath = path.join(OUT, jd.suggestedFilename());
   await jd.saveAs(jsonPath);
   const clipJson = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-  r.check('JSON klip valid dan berisi 3 track',
-    Array.isArray(clipJson.tracks) && clipJson.tracks.length === 3, JSON.stringify(Object.keys(clipJson)));
+  // Jumlah track mengikuti rig contoh bawaan, jadi tidak dipatok angka
+  // tetap — yang diperiksa: JSON-nya utuh, track-nya ada, dan tiap track
+  // benar-benar membawa data, bukan cangkang kosong.
+  r.info('track di JSON: ' + (clipJson.tracks ? clipJson.tracks.length : 0));
+  r.check('JSON klip valid dan membawa track berisi',
+    Array.isArray(clipJson.tracks) && clipJson.tracks.length > 0 &&
+    clipJson.tracks.every(function (t) {
+      return t.name && Array.isArray(t.times) && t.times.length > 1 &&
+        Array.isArray(t.values) && t.values.length >= t.times.length;
+    }),
+    JSON.stringify(Object.keys(clipJson)));
 
   r.section('Reset');
   await page.locator('#btn-reset').click();

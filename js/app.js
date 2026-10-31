@@ -474,72 +474,20 @@
    * Demo: animasi yang sengaja dibuat patah
    * ================================================================== */
 
+  /**
+   * Contoh bawaan: avatar manusia ber-rig dengan klip yang sengaja patah.
+   *
+   * Dulu ini cuma dua bola tanpa tulang. Konsekuensinya fitur paling
+   * menarik di aplikasi ini — memindahkan tangkapan video ke sebuah rig —
+   * tidak bisa dicoba sama sekali tanpa menyiapkan model sendiri lebih
+   * dulu. Sekarang contohnya rig sungguhan, jadi video bisa langsung
+   * dijatuhkan ke atasnya.
+   */
   function buildDemo() {
-    var group = new THREE.Group();
-    group.name = 'Hopper';
-
-    var bodyMat = new THREE.MeshStandardMaterial({ color: 0x22d3ee, roughness: 0.35, metalness: 0.15 });
-    var limbMat = new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.5 });
-
-    var body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 40, 28), bodyMat);
-    body.name = 'Body';
-    body.castShadow = true;
-    group.add(body);
-
-    var head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 32, 22), bodyMat);
-    head.position.set(0, 0.62, 0.08);
-    head.castShadow = true;
-    body.add(head);
-
-    [-0.3, 0.3].forEach(function (x) {
-      var foot = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.34), limbMat);
-      foot.position.set(x, -0.52, 0.06);
-      foot.castShadow = true;
-      body.add(foot);
-    });
-
-    // --- Kurva animasi: 8 fps, dengan jitter dan satu quaternion yang
-    // sengaja dibalik tandanya (kasus nyata dari eksporter yang berbeda).
-    var fps = 8, duration = 2.4;
-    var count = Math.round(duration * fps) + 1;
-    var seed = 20260919;
-    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff - 0.5; }
-
-    var times = [], pos = [], quat = [], scale = [];
-    var q = new THREE.Quaternion();
-    var e = new THREE.Euler();
-
-    for (var i = 0; i < count; i++) {
-      var t = i / fps;
-      times.push(t);
-
-      var phase = t * Math.PI * 1.35;
-      var hop = Math.abs(Math.sin(phase)) * 1.15;
-      pos.push(
-        Math.sin(t * 1.1) * 1.3 + rnd() * 0.05,
-        0.62 + hop + rnd() * 0.05,
-        Math.cos(t * 0.85) * 0.9 + rnd() * 0.05
-      );
-
-      e.set(Math.sin(phase) * 0.28 + rnd() * 0.05, t * 1.6, Math.cos(phase) * 0.22 + rnd() * 0.05);
-      q.setFromEuler(e);
-      var flip = (i === 9 || i === 10) ? -1 : 1; // hemisphere sengaja dirusak
-      quat.push(q.x * flip, q.y * flip, q.z * flip, q.w * flip);
-
-      // squash & stretch mengikuti fase lompatan
-      var stretch = 1 + Math.sin(phase) * 0.14;
-      scale.push(1 / Math.sqrt(stretch), stretch, 1 / Math.sqrt(stretch));
-    }
-
-    var clip = new THREE.AnimationClip('hop_stepped_8fps', duration, [
-      new THREE.VectorKeyframeTrack('Hopper.position', times, pos),
-      new THREE.QuaternionKeyframeTrack('Hopper.quaternion', times, quat),
-      new THREE.VectorKeyframeTrack('Body.scale', times, scale)
-    ]);
-
-    state.fileName = 'demo_hopper';
+    var avatar = Avatar.build({ name: 'Avatar', clipName: 'wave_stepped_8fps' });
+    state.fileName = 'demo_avatar';
     state.modelSource = 'demo';
-    setModel(group, [clip], tr('demo.name'));
+    setModel(avatar.root, [avatar.clip], tr('demo.name'));
   }
 
   /* ================================================================== *
@@ -860,7 +808,11 @@
    * cadangannya (membuat sosok batang) ditangani pemanggil.
    */
   function applyCaptureToLoadedModel(result, label) {
-    if (state.modelSource !== 'file' || !state.root) return false;
+    // Contoh bawaan ikut dihitung: dia rig sungguhan, dan justru itu
+    // cara tercepat mencoba fitur ini. Yang dikecualikan cuma rig hasil
+    // tangkapan — memindahkan tangkapan ke dirinya sendiri tidak ada
+    // gunanya.
+    if (state.modelSource === 'capture' || !state.root) return false;
     var skeleton = Retarget.findSkeleton(state.root);
     if (!skeleton) {
       toast(tr('retarget.noskel'), true);
@@ -878,8 +830,9 @@
     // ada supaya bisa dibandingkan, dan klip tangkapan jadi yang terpilih.
     var clips = state.originalClips.concat([out.clip]);
     var root = state.root;
+    var source = state.modelSource;
     setModel(root, clips, label);
-    state.modelSource = 'file';
+    state.modelSource = source;
     selectClip(clips.length - 1);
 
     var miss = out.missing.length

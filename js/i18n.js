@@ -159,7 +159,7 @@
       'toast.glbfail': 'Gagal mengekspor GLB: {err}',
       'toast.jsonsaved': 'Klip "{name}" tersimpan sebagai JSON.',
       'toast.ghostfail': 'Bayangan butuh SkeletonUtils, yang gagal dimuat dari CDN.',
-      'demo.name': 'Demo Hopper (8 fps stepped)',
+      'demo.name': 'Avatar demo (8 fps stepped)',
       'err.three': 'three.js gagal dimuat',
       'err.threebody': 'Halaman ini mengambil three.js dari CDN. Periksa koneksi internet lalu muat ulang.'
     },
@@ -305,7 +305,7 @@
       'toast.glbfail': 'GLB export failed: {err}',
       'toast.jsonsaved': 'Clip "{name}" saved as JSON.',
       'toast.ghostfail': 'The ghost needs SkeletonUtils, which failed to load from the CDN.',
-      'demo.name': 'Demo Hopper (8 fps stepped)',
+      'demo.name': 'Avatar demo (8 fps stepped)',
       'err.three': 'three.js failed to load',
       'err.threebody': 'This page pulls three.js from a CDN. Check your connection and reload.'
     }

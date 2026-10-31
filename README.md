@@ -149,13 +149,39 @@ jadi `stats.motionRange` mengukur simpangan rotasi terbesar di seluruh
 tulang; di bawah 8° aplikasi mengatakannya terus terang alih-alih
 menyerahkan sosok diam tanpa penjelasan.
 
+### Avatar contoh bawaan
+
+Contoh bawaannya avatar manusia ber-rig, dibangun dari kode — bukan
+dimuat dari berkas. Alasannya dua: tidak ada aset yang lisensinya harus
+ikut dipikirkan, dan `standalone.html` tetap satu berkas.
+
+Yang penting bukan tampilannya, tapi bahwa dia **rig sungguhan**: 21
+tulang, 15 di antaranya bernama kanonik sehingga langsung dikenali
+retarget, dan bobot skin-nya membaur di sambungan supaya sikut dan lutut
+menekuk, bukan terlipat seperti sedotan. Jadi tangkapan video bisa
+dijatuhkan ke atasnya tanpa menyiapkan model apa pun lebih dulu.
+
+Tulang hiasan — `Neck`, `Head`, `LeftShoulder`, `RightShoulder`,
+`LeftToe`, `RightToe` — sengaja TIDAK dikenali retarget. Deteksi pose
+tidak memberi data yang bisa dipercaya untuk bagian itu, jadi lebih baik
+dibiarkan di pose rest daripada digerakkan oleh tebakan.
+
+Penampang tulangnya elips (`rx`/`rz`), bukan lingkaran. Satu angka
+radius untuk semuanya membuat sosoknya jadi rangkaian pipa; torso
+manusia lebar dan pipih, telapak tangan lebih pipih lagi.
+
+Klipnya tetap **sengaja patah** — 8 fps, berjitter, dengan dua frame
+yang quaternion-nya dibalik tandanya. Itu memang gunanya contoh bawaan:
+memberi engine sesuatu untuk dibereskan, bukan memamerkan animasi yang
+sudah bagus.
+
 ### Memindahkan tangkapan ke model sendiri
 
-Kalau karakter sudah dimuat lebih dulu, video yang dijatuhkan setelahnya
-TIDAK menggantikannya: gerakannya dipindahkan ke rig karakter itu, dan
-klip tangkapan ditambahkan di samping klip bawaannya. Sosok batang cuma
-cadangan untuk saat tidak ada model, atau saat rig-nya tidak bisa
-dicocokkan.
+Video yang dijatuhkan TIDAK menggantikan model yang sedang dimuat:
+gerakannya dipindahkan ke rig model itu, dan klip tangkapan ditambahkan
+di samping klip bawaannya. Ini berlaku untuk model yang diunggah maupun
+untuk avatar contoh bawaan — yang terakhir itu cara tercepat mencobanya.
+Sosok batang tinggal cadangan untuk saat rig-nya tidak bisa dicocokkan.
 
 Yang membuat ini mungkin: `posemocap.js` tidak menyimpan orientasi tulang
 apa adanya, melainkan SIMPANGANNYA DARI POSE REST. Orientasi mentah
@@ -350,6 +376,7 @@ js/i18n.js                  kamus dan pengalih bahasa
 js/posemocap.js             titik sendi → rotasi tulang (tanpa dependensi)
 js/posepipeline.js          rig three.js dari keluaran posemocap
 js/retarget.js              pindahkan tangkapan ke rig model lain
+js/avatar.js                avatar manusia ber-rig untuk contoh bawaan
 js/posedetect.js            jembatan ke MediaPipe Pose
 js/three-adapter.js         jembatan THREE.AnimationClip ↔ engine
 js/app.js                   viewer, kontrol, export
@@ -360,6 +387,7 @@ tests/skinfix.test.js       unit test perbaikan skin
 tests/posemocap.test.js     unit test retargeting pose
 tests/posepipeline.test.js  penjaga rig hasil tangkapan (termasuk material.skinning)
 tests/retarget.test.js      penjaga pencocokan nama tulang & matematika retarget
+tests/avatar.test.js        penjaga rangka, bobot skin, dan cacat klip contoh
 tests/i18n.test.js          penjaga paritas kamus dua bahasa
 tests/standalone.test.js    penjaga sinkronisasi berkas rakitan
 tests/browser/              test end-to-end di browser sungguhan

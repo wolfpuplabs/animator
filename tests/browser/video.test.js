@@ -133,6 +133,8 @@ const r = H.createReporter('Video');
     status: document.getElementById('video-status').textContent,
     toast: document.getElementById('toast').textContent,
     clips: document.querySelectorAll('.clip-row').length,
+    activeRow: document.querySelector('.clip-row.active')
+      ? document.querySelector('.clip-row.active').innerText.replace(/\n/g, ' | ') : '',
     row: document.querySelector('.clip-row') ? document.querySelector('.clip-row').innerText.replace(/\n/g, ' | ') : '',
     duration: document.getElementById('time-display').textContent,
     skinAvailable: !document.getElementById('opt-skin').disabled,
@@ -143,7 +145,11 @@ const r = H.createReporter('Video');
   r.check('ada orang terdeteksi', /\d+%/.test(state.status), state.status);
   const percent = parseInt(state.status, 10) || 0;
   r.check('sebagian besar frame terdeteksi', percent >= 60, state.status);
-  r.check('satu klip animasi terbentuk', state.clips === 1, String(state.clips));
+  // Tangkapan DITAMBAHKAN ke rig avatar bawaan, bukan menggantikannya:
+  // klip bawaan tetap ada supaya bisa dibandingkan. Jadi yang diperiksa
+  // bukan "ada satu klip", tapi "klip tangkapan muncul dan jadi aktif".
+  r.check('klip tangkapan ditambahkan ke klip bawaan', state.clips === 2, String(state.clips));
+  r.check('klip tangkapan yang terpilih', /capture/i.test(state.activeRow), state.activeRow);
   r.check('klip punya durasi', !/\/ 0\.00s/.test(state.duration), state.duration);
   r.check('rig hasilnya ber-skeleton', state.skinAvailable);
   r.check('enhance bisa dijalankan', state.runEnabled);
