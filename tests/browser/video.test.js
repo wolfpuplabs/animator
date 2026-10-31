@@ -131,6 +131,7 @@ const r = H.createReporter('Video');
 
   const state = await page.evaluate(() => ({
     status: document.getElementById('video-status').textContent,
+    quality: document.getElementById('video-status').title,
     toast: document.getElementById('toast').textContent,
     clips: document.querySelectorAll('.clip-row').length,
     activeRow: document.querySelector('.clip-row.active')
@@ -150,6 +151,19 @@ const r = H.createReporter('Video');
   // bukan "ada satu klip", tapi "klip tangkapan muncul dan jadi aktif".
   r.check('klip tangkapan ditambahkan ke klip bawaan', state.clips === 2, String(state.clips));
   r.check('klip tangkapan yang terpilih', /capture/i.test(state.activeRow), state.activeRow);
+
+  r.info('mutu tangkapan: ' + state.quality);
+  // Pembenahan titik sendi memang jalan di jalur yang sebenarnya.
+  //
+  // Mutu hasilnya diukur di tests/poserefine.test.js, yang punya
+  // kebenaran acuan buatan DAN 70 frame keluaran detektor sungguhan.
+  // Yang tidak bisa dibuktikan di sana cuma satu: bahwa modulnya
+  // benar-benar terpasang di antara deteksi dan pembuatan rotasi di
+  // aplikasi yang jadi. Itu yang dijaga di sini.
+  const refined = /sendi diisi|joints filled/.test(state.quality);
+  r.check('pembenahan titik sendi terpasang di jalur tangkapan', refined, state.quality);
+  const spread = /sebaran panjang tulang ([\d.]+)%|bone-length spread ([\d.]+)%/.exec(state.quality);
+  r.check('sebaran panjang tulang dilaporkan', !!spread, state.quality);
   r.check('klip punya durasi', !/\/ 0\.00s/.test(state.duration), state.duration);
   r.check('rig hasilnya ber-skeleton', state.skinAvailable);
   r.check('enhance bisa dijalankan', state.runEnabled);

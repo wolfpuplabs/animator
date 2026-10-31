@@ -108,8 +108,76 @@ Yang keluar dari deteksi justru goyang dan berderau — persis yang engine
 di sini dibuat untuk bereskan, jadi keduanya nyambung secara alami.
 
 Beberapa catatan praktis: satu orang saja di frame, seluruh badan
-terlihat, dan hindari potongan kamera. Sendi yang tertutup ditahan di
-rotasi terakhirnya, bukan dinolkan, supaya tidak menyentak.
+terlihat, dan hindari potongan kamera.
+
+#### Titik sendi dibereskan sebelum jadi rotasi
+
+`js/poserefine.js` duduk di antara deteksi dan pembuatan rotasi.
+Urutannya bukan selera: rotasi disimpulkan dengan mengarahkan tulang ke
+sendi anaknya, jadi kesalahan posisi sendi masuk langsung jadi kesalahan
+rotasi — dan kesalahan di pangkal rantai ikut memutar seluruh anggota
+badan di bawahnya. Membereskan setelah jadi rotasi berarti membereskan
+kesalahan yang sudah menyebar.
+
+Dua tahap:
+
+**Isi celah.** Sendi yang hilang sebentar diinterpolasi dari frame
+terbaca terdekat di kedua sisinya, bukan ditahan. Batasnya waktu, bukan
+jumlah frame — 0,4 detik — karena sepuluh frame berarti hal yang sangat
+berbeda pada 12 fps dan pada 30 fps. Celah lebih panjang dari itu
+dibiarkan: menjembataninya berhenti jadi penafsiran dan mulai jadi
+karangan.
+
+**Haluskan.** Pencocokan kuadratik berbobot (Savitzky-Golay), bobotnya
+keyakinan deteksi, lebar jendela 0,29 detik. Kuadratik, bukan rata-rata
+bergerak, supaya puncak gerakan tidak terpangkas: pada 24 fps jendela
+ini masih menyimpan 97% amplitudo gerakan 2 Hz dan 87% gerakan 3 Hz —
+kira-kira secepat lambaian tangan. Hasilnya dikurung ke rentang
+sampelnya supaya ringing kuadratik tidak lolos di sendi yang berhenti
+mendadak.
+
+Diukur pada video salat 240 frame, dibandingkan tanpa pembenahan:
+
+| | mentah | dibereskan |
+|---|---|---|
+| sentakan rata-rata | 2,39°/frame | **1,76°/frame** |
+| frame menyentak >20° | 52 | **18** |
+| sendi ditahan | 428 | 407 |
+| tulang yang membaik | — | 14 dari 15 |
+
+Tidak ada tulang yang jadi lebih menyentak.
+
+#### Tahap ketiga yang dibuang, dan kenapa itu penting
+
+Pernah ada tahap ketiga: memaksa panjang tiap tulang ke median seluruh
+frame. Alasannya kuat — tulang orang tidak memanjang-memendek, jadi
+setiap selisih panjang adalah murni kesalahan — dan koreksinya dibebankan
+ke z karena kedalaman yang paling buruk ditebak.
+
+Diukur terhadap kebenaran acuan buatan, tahap itu tampak yang paling
+berguna dari ketiganya: error posisi sendi turun dari 12,1 mm jadi
+10,7 mm. Diukur pada keluaran MediaPipe sungguhan, dia **menaikkan**
+sentakan dari 1,78° jadi 4,42° per frame dan melipattigakan jumlah frame
+yang menyentak. Tidak ada setelan yang menyelamatkannya; dibatasi sampai
+2 persen panjang tulang pun masih lebih buruk daripada tidak dipakai.
+Dibuang.
+
+Sebabnya ada di model derau, bukan di aljabarnya. Test buatan memberi
+tiap sendi derau kecil yang berdiri sendiri-sendiri. Kesalahan MediaPipe
+tidak begitu — dia **terstruktur**: anggota badan yang terjepit
+menghadap kamera diringkusnya jadi sepertiga panjangnya, utuh dan
+konsisten dengan dirinya sendiri. Kendala panjang tulang menyerang
+persis jenis kesalahan yang tidak dibuat MediaPipe, sambil mengarang
+jenis yang dibuatnya.
+
+Pelajarannya bukan soal tulang, tapi soal cara mengukur: benchmark
+buatan tahu arah kebenarannya, tapi cuma data sungguhan yang tahu
+bentuk kesalahannya. Karena itu 70 frame keluaran detektor yang nyata
+ikut disimpan di `tests/fixtures/` sebagai penjaga tetap — lihat
+`tests/fixtures/README.md`. Sebaran panjang tulang sendiri tetap
+**diukur dan dilaporkan** di tooltip status, cuma tidak dikoreksi:
+angkanya diagnosis yang bagus soal seberapa payah detektornya di satu
+video — di bawah 1% pada klip mudah, sekitar 10% saat sujud.
 
 #### Kalau sosoknya keluar tapi diam
 
@@ -373,6 +441,7 @@ css/style.css               tampilan
 js/fluidizer.js             engine animasi (JS murni, tanpa dependensi, bisa dipakai di node)
 js/skinfix.js               perbaikan bobot skin & envelope (juga tanpa dependensi)
 js/i18n.js                  kamus dan pengalih bahasa
+js/poserefine.js            bereskan titik sendi sebelum jadi rotasi (tanpa dependensi)
 js/posemocap.js             titik sendi → rotasi tulang (tanpa dependensi)
 js/posepipeline.js          rig three.js dari keluaran posemocap
 js/retarget.js              pindahkan tangkapan ke rig model lain
@@ -386,6 +455,8 @@ tests/fluidizer.test.js     unit test engine animasi
 tests/skinfix.test.js       unit test perbaikan skin
 tests/posemocap.test.js     unit test retargeting pose
 tests/posepipeline.test.js  penjaga rig hasil tangkapan (termasuk material.skinning)
+tests/poserefine.test.js    ukur pembenahan: acuan buatan + frame detektor sungguhan
+tests/fixtures/             70 frame keluaran MediaPipe nyata, penjaga tetap
 tests/retarget.test.js      penjaga pencocokan nama tulang & matematika retarget
 tests/avatar.test.js        penjaga rangka, bobot skin, dan cacat klip contoh
 tests/i18n.test.js          penjaga paritas kamus dua bahasa
@@ -436,6 +507,27 @@ origin `null`, sehingga setiap `import` diblokir di sana. Kalau sudah
 punya Chromium sendiri, set `CHROMIUM_PATH`. `MFS_SERVE_DEBUG=1`
 menyebutkan berkas yang 404 — tanpa itu yang terlihat cuma "Failed to
 load resource" tanpa nama.
+
+`tests/poserefine.test.js` berdiri di atas dua kaki yang tidak bisa
+saling menggantikan, dan itu bukan kelebihan ketelitian. Kaki pertama
+kebenaran acuan buatan: gerakan dengan panjang tulang yang persis tetap,
+dirusak seperti deteksi satu kamera merusaknya, lalu hasil pembenahan
+dibandingkan ke acuannya — satu-satunya cara mengetahui **arah**
+errornya. Kaki kedua 70 frame keluaran MediaPipe sungguhan di
+`tests/fixtures/`, tanpa acuan apa pun, diukur dengan sentakan
+antar-frame — satu-satunya cara mengetahui **bentuk** kesalahannya.
+
+Keduanya diperlukan karena sebuah tahap yang menang bersih di kaki
+pertama terbukti merusak kaki kedua, dan dibuang karena itu. Ceritanya
+di [Tahap ketiga yang dibuang](#tahap-ketiga-yang-dibuang-dan-kenapa-itu-penting)
+dan di `tests/fixtures/README.md`. Siapa pun yang menambah tahap baru di
+`poserefine.js` harus mengukurnya di kaki kedua, bukan cuma di kaki
+pertama.
+
+Asersi per-tulang di sana juga disengaja: rata-rata bisa menipu, karena
+satu tulang boleh saja meledak sementara empat belas lainnya membaik dan
+jumlahnya masih terlihat turun. Tahap yang dibuang ketahuan tepat di
+situ.
 
 `tests/browser/rigged.test.js` membuat rig skinned sungguhan, mengekspornya
 jadi GLB, memuatnya lewat file input aplikasi, meng-enhance, mengekspor
@@ -569,7 +661,20 @@ orang apa adanya.
 - **Deteksi pose menebak rotasi tulang.** Yang diberikan deteksi adalah
   posisi sendi; twist di sepanjang tulang tidak terukur sama sekali dan
   hanya ditebak dari sumbu bahu atau pinggul. Satu orang per video, dan
-  potongan kamera akan merusak kontinuitasnya.
+  potongan kamera akan merusak kontinuitasnya. `js/poserefine.js`
+  menurunkan sentakannya 26 persen pada video sungguhan, tapi itu
+  menghaluskan apa yang terukur — ia tidak bisa memunculkan twist yang
+  memang tidak pernah diukur. Untuk menembus langit-langit itu, lihat
+  [Kalau butuh mocap yang betulan bagus](#kalau-butuh-mocap-yang-betulan-bagus).
+- **Sendi yang tertutup lebih dari 0,4 detik dibekukan.** Celah lebih
+  pendek dijembatani; yang lebih panjang ditahan di rotasi terakhirnya,
+  karena menebak lebih jauh dari itu mengarang gerakan yang tidak
+  pernah ada. Anggota badan yang hilang lama akan terlihat beku lalu
+  menyentak saat terbaca kembali.
+- **Model statis tidak bisa dianimasikan.** GLB tanpa skeleton —
+  `"skins": []` di glTF-nya, lazim untuk hasil scan atau konversi OBJ —
+  bisa dilihat tapi tidak bisa jadi sasaran retarget. Tidak ada tulang
+  untuk digerakkan.
 - **Perbaikan skin bekerja pada topologi, bukan pada makna anatomi.**
   Penghalusan envelope tidak tahu mana siku dan mana lutut; ia hanya
   melandaikan medan bobot. Untuk rig yang envelope-nya memang sengaja
@@ -581,3 +686,79 @@ orang apa adanya.
 - Dimuat dari CDN: three.js 0.186.1, dipatok versinya, lewat import map
   sebagai modul ES. Peramban tanpa dukungan import map (Safari di bawah
   16.4, Chrome di bawah 89) tidak akan jalan.
+
+## Kalau butuh mocap yang betulan bagus
+
+Deteksi pose di peramban punya langit-langit yang tidak bisa dinaikkan
+dengan menghaluskan: dia memberi **posisi sendi**, dan rotasi tulang
+harus disimpulkan dari situ. Twist di sepanjang tulang tidak terukur
+sama sekali. Tidak ada filter yang bisa memunculkan informasi yang
+memang tidak pernah diukur.
+
+Yang menembus langit-langit itu adalah model yang memprediksi
+**rotasi langsung dari video**. Yang paling matang saat ini
+[MoCapAnything V2](https://github.com/phongdaot/MocapAnything) (MIT):
+video → rotasi siap-BVH, satu jaringan ujung-ke-ujung, dan dia sudah
+sadar-skeleton — jadi retargeting ke rig sembarang ikut terbangun di
+dalamnya, bukan ditempel belakangan.
+
+**Tidak bisa dimasukkan ke MFS 5, dan itu bukan soal kemauan.** Dia
+PyTorch dengan transformer difusi dan fitur DINOv2 per frame: butuh GPU,
+bobot dari HuggingFace dalam ukuran gigabyte, dan Blender untuk render
+mesh opsionalnya. Tidak ada jalur ONNX atau WebGPU di repo-nya. MFS 5
+seluruhnya berjalan di peramban dan `standalone.html` tetap satu
+berkas — dua hal yang tidak mungkin dipertahankan sambil menjalankan
+model difusi.
+
+Jadi pembagian kerjanya begini, dan ini cara memakai keduanya hari ini:
+
+```
+MoCapAnything (di luar peramban)        MFS 5 (di peramban)
+───────────────────────────────         ──────────────────────────
+video → rotasi sendi → BVH/GLB    →     impor GLB → retarget ke
+                                        model sendiri → bersihkan
+HF Space gratis (ZeroGPU),              jitter → ekspor GLB
+atau lokal dengan GPU
+```
+
+Jalurnya sudah jalan sekarang, tanpa kode tambahan: ambil GLB dari
+[demo HuggingFace-nya](https://huggingface.co/spaces/kehong/MoCapAnythingV2)
+— gratis dan tidak perlu setup apa pun — lalu buka di MFS 5 seperti
+model lain. Retarget dan engine di sini bekerja di atas klip yang sudah
+ada di dalam GLB, tidak peduli dari mana datangnya.
+
+Yang MFS 5 belum punya dan akan jadi penghubung yang lebih rapi: impor
+**BVH**, format keluaran utama MoCapAnything. `THREE.BVHLoader` ada di
+`examples/jsm/loaders/`, jadi ongkosnya kecil. Belum dikerjakan.
+
+Yang **diambil** dari MoCapAnything tanpa menjalankannya adalah
+gagasannya, dan itu sudah masuk: temporal trunk-nya mengurus koherensi
+antar frame, dan `js/poserefine.js` mengerjakan hal yang sama dengan
+cara klasik. Satu gagasannya sudah dicoba dan **ditolak oleh
+pengukuran** — kendala panjang tulang; ceritanya di
+[Tahap ketiga yang dibuang](#tahap-ketiga-yang-dibuang-dan-kenapa-itu-penting).
+Dua yang belum dicoba dan masih masuk akal: batas sudut sendi (siku dan
+lutut cuma menekuk satu arah) dan dekomposisi twist. Keduanya butuh
+prior yang dipelajari dari data, bukan aturan tangan — jadi kalau
+dikerjakan, harus diukur pada `tests/fixtures/pose-prostration.json`
+dulu, bukan pada benchmark buatan.
+
+## Model statis tidak bisa dianimasikan
+
+Kalau sebuah GLB mau dipakai sebagai contoh yang **digerakkan** oleh
+tangkapan video, dia harus punya skeleton. Banyak model bagus di
+Sketchfab dan sejenisnya tidak punya: hasil scan atau konversi OBJ
+datang sebagai mesh mati. Tandanya di glTF-nya `"skins": []` dan
+`"animations": []`, dan node-nya cuma satu grup berisi `Object_0`,
+`Object_1`, dan seterusnya tanpa tulang.
+
+Model begitu tetap bisa dimuat dan dilihat di MFS 5, tapi retarget akan
+menolaknya — tidak ada tulang untuk digerakkan — dan opsi skinning akan
+terkunci. Memberinya rangka berarti auto-rigging plus bobot skin; itu
+pekerjaan tersendiri dan bukan sesuatu yang bisa disimpulkan dari
+mesh-nya saja.
+
+Untuk contoh bawaan yang bisa langsung dicoba, avatar di `js/avatar.js`
+dibangun dari kode justru supaya tidak ada aset yang lisensinya harus
+dipikirkan dan `standalone.html` tetap satu berkas — GLB 3 MB yang
+di-base64 menambah sekitar 4 MB ke berkas yang sekarang 252 KB.
