@@ -73,6 +73,26 @@
     ];
   }
   function qConj(a) { return [-a[0], -a[1], -a[2], a[3]]; }
+
+  /** Interpolasi bola antara dua quaternion, lewat jalur terpendek. */
+  function qSlerp(a, b, t) {
+    var d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+    var e = [b[0], b[1], b[2], b[3]];
+    if (d < 0) { d = -d; e = [-e[0], -e[1], -e[2], -e[3]]; }
+    if (d > 0.9995) {
+      return qNormalize([
+        a[0] + (e[0] - a[0]) * t, a[1] + (e[1] - a[1]) * t,
+        a[2] + (e[2] - a[2]) * t, a[3] + (e[3] - a[3]) * t
+      ]);
+    }
+    var theta = Math.acos(d);
+    var s0 = Math.sin((1 - t) * theta) / Math.sin(theta);
+    var s1 = Math.sin(t * theta) / Math.sin(theta);
+    return qNormalize([
+      a[0] * s0 + e[0] * s1, a[1] * s0 + e[1] * s1,
+      a[2] * s0 + e[2] * s1, a[3] * s0 + e[3] * s1
+    ]);
+  }
   function qNormalize(q) {
     var l = Math.sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
     return l < EPS ? [0, 0, 0, 1] : [q[0] / l, q[1] / l, q[2] / l, q[3] / l];
@@ -163,7 +183,24 @@
     flipZ: true,
     minVisibility: 0.4,  // di bawah ini sendi dianggap tidak terbaca
     scale: 1,            // meter ke satuan skena
-    smoothHold: true     // tahan rotasi terakhir saat sendi hilang
+    smoothHold: true,    // tahan rotasi terakhir saat sendi hilang
+    // Lamanya melandai saat sendi yang lama tertutup terbaca lagi.
+    //
+    // Tanpa ini, anggota badan yang ditahan sepanjang satu gerakan —
+    // tungkai yang terlipat di bawah badan saat sujud, misalnya —
+    // melompat ke pose barunya dalam SATU frame. Terukur 123 derajat
+    // pada paha kiri di video salat, sementara seluruh tulang lain di
+    // frame yang sama bergerak di bawah 25 derajat. Di layar itu
+    // kedutan, dan kalau penapakan lantai menyala ia ikut menyeret
+    // seluruh sosoknya menembus lantai lalu kembali.
+    //
+    // Melandainya tidak menambah informasi apa pun — pose tujuannya
+    // tetap sama persis. Yang diubah cuma caranya sampai ke sana.
+    releaseSeconds: 0.4,
+    // Celah yang lebih pendek dari ini tidak perlu dilandaikan: kedutan
+    // satu frame tidak terlihat, dan melandaikannya cuma menunda data
+    // yang sebenarnya sudah benar.
+    releaseMinHold: 2
   };
 
   function resolveOptions(options) {
@@ -381,6 +418,7 @@
       framesWithoutPose: 0,
       jointsBelowVisibility: 0,
       bonesHeld: 0,
+      bonesEased: 0,   // frame yang dilandaikan setelah lepas dari tahanan
       motionRange: 0   // simpangan rotasi terbesar, derajat
     };
 
@@ -409,6 +447,25 @@
     var lastLocal = {};
     var lastHip = [0, 0, 0];
 
+    // Pelandaian saat sendi yang tertutup terbaca lagi.
+    //   heldRun  — sudah berapa frame berturut-turut tulang ini ditahan
+    //   easeLeft — sisa frame pelandaian
+    //   easeFrom — rotasi tempat pelandaian dimulai (pose yang ditahan)
+    //   easeSpan — panjang pelandaian untuk pelepasan yang sedang jalan
+    var heldRun = {}, easeLeft = {}, easeFrom = {}, easeSpan = {};
+    var dt = 0;
+    if (frames.length > 1) {
+      var gaps = [];
+      for (var gi = 1; gi < frames.length; gi++) {
+        var g = frames[gi].time - frames[gi - 1].time;
+        if (g > 0) gaps.push(g);
+      }
+      dt = median(gaps);
+    }
+    var easeFrames = (dt > 0 && opt.releaseSeconds > 0)
+      ? Math.max(1, Math.round(opt.releaseSeconds / dt)) : 0;
+    stats.bonesEased = 0;
+
     frames.forEach(function (frame) {
       var p = derivePoints(frame.landmarks, opt);
       times.push(frame.time);
@@ -434,6 +491,8 @@
 
         if (!a || !b) {
           stats.jointsBelowVisibility++;
+          heldRun[bone.name] = (heldRun[bone.name] || 0) + 1;
+          easeLeft[bone.name] = 0;
           if (opt.smoothHold && lastLocal[bone.name]) {
             stats.bonesHeld++;
             local = lastLocal[bone.name];
@@ -453,10 +512,33 @@
             var world = basisQuaternion(dir, hintVector(p, bone.hint));
             // buang orientasi rest supaya rotasi diukur dari pose T
             var relative = qMul(world, qConj(restQuat[bone.name]));
-            worldQuat[bone.name] = relative;
             var parentWorld = bone.parent ? (worldQuat[bone.parent] || [0, 0, 0, 1]) : [0, 0, 0, 1];
             local = qNormalize(qMul(qConj(parentWorld), relative));
+
+            // Baru lepas dari tahanan panjang: mulai melandai.
+            if (easeFrames > 0 && heldRun[bone.name] >= opt.releaseMinHold &&
+                lastLocal[bone.name]) {
+              // Panjangnya tidak pernah melebihi lamanya ditahan —
+              // tahanan tiga frame tidak pantas dilandaikan selama
+              // tahanan tiga detik.
+              easeSpan[bone.name] = Math.min(heldRun[bone.name], easeFrames);
+              easeLeft[bone.name] = easeSpan[bone.name];
+              easeFrom[bone.name] = lastLocal[bone.name];
+            }
+
+            if (easeLeft[bone.name] > 0) {
+              var span = easeSpan[bone.name];
+              var step = span - easeLeft[bone.name] + 1;
+              local = qSlerp(easeFrom[bone.name], local, step / span);
+              easeLeft[bone.name]--;
+              stats.bonesEased++;
+              // Rotasi dunia harus ikut pose yang benar-benar dipakai,
+              // kalau tidak anak-anaknya mewarisi pose yang tidak ada.
+              relative = qMul(parentWorld, local);
+            }
+            worldQuat[bone.name] = relative;
           }
+          heldRun[bone.name] = 0;
         }
 
         lastLocal[bone.name] = local;
@@ -500,7 +582,7 @@
       restJointPositions: restJointPositions,
       buildRestSkeleton: buildRestSkeleton,
       normalize: normalize, cross: cross, dot: dot, sub: sub, mid: mid,
-      qMul: qMul, qConj: qConj, qNormalize: qNormalize, median: median,
+      qMul: qMul, qConj: qConj, qNormalize: qNormalize, qSlerp: qSlerp, median: median,
       motionRange: motionRange
     }
   };

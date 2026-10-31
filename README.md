@@ -147,6 +147,68 @@ Diukur pada video salat 240 frame, dibandingkan tanpa pembenahan:
 
 Tidak ada tulang yang jadi lebih menyentak.
 
+#### Sosoknya menapak lantai, bukan melayang
+
+Deteksi pose tidak memberi perpindahan akar **sama sekali**.
+`worldLandmarks` MediaPipe menaruh titik asalnya di antara kedua
+pinggul pada *setiap* frame, jadi orang yang sujud sampai ke lantai
+tetap terekam dengan pinggul terpaku di tempat — terukur **1 milimeter**
+sepanjang klip sepuluh detik.
+
+Akibatnya sosoknya cuma bisa berputar di sekitar pinggulnya. Saat
+badannya mendatar, dia mendatar **di udara**, setinggi pinggul orang
+berdiri: terukur melayang sampai 67 cm di atas lantai.
+
+Yang hilang itu tidak bisa diambil dari data, tapi bisa disimpulkan
+dari posenya: **apa pun yang paling bawah menyentuh lantai.** Di
+berdiri itu telapak kaki, di sujud itu dahi, telapak tangan dan lutut.
+Jadi tiap frame dihitung sendinya, dicari yang terendah, lalu seluruh
+rig diturunkan sampai titik itu kembali ke ketinggian lantai pose rest.
+
+Diukur terhadap pose rest, bukan terhadap `y=0`, karena dua hal: rig
+tidak selalu dibuat dengan telapak kaki di titik asal, dan sendi kaki
+memang duduk di atas permukaan telapak. Dua selisih itu sama di rest
+maupun di animasi, jadi keduanya saling meniadakan.
+
+Bisa dimatikan dengan `ground: false`.
+
+#### Sendi yang lama tertutup melandai, tidak melompat
+
+Penapakan di atas memperlihatkan cacat yang sudah lama ada tapi
+tersamar. Tungkai orang yang sujud terlipat di bawah badan dan tidak
+terbaca sepanjang gerakan, jadi rotasinya **ditahan**. Begitu terbaca
+lagi, dia melompat ke pose barunya dalam satu frame: terukur **123
+derajat** pada paha kiri, sementara seluruh tulang lain di frame yang
+sama bergerak di bawah 25 derajat.
+
+Sekarang pelepasan dari tahanan melandai selama 0,4 detik. Melandainya
+tidak menambah informasi apa pun — pose tujuannya tetap sama persis,
+dan ada test yang menjaga itu. Yang diubah cuma caranya sampai ke sana.
+
+Hasil gabungan keduanya pada video salat 240 frame:
+
+| | mentah | sesudah |
+|---|---|---|
+| titik terendah sosok | melayang sampai **+67 cm** | tetap dalam **±2,5 cm** dari lantai |
+| lonjakan satu frame terburuk | 123° | **37°** |
+| frame yang dilandaikan | — | 20 dari 240 (8%) |
+
+Dua angka setelan itu dipilih dari pengukuran, bukan selera. Landaian
+0,6 detik memang menurunkan tembus-lantai 2 cm lagi, tapi melandaikan
+40% frame lebih banyak — dan tiap frame yang dilandaikan adalah frame
+yang tidak menampilkan data deteksi apa adanya. 0,4 detik titik
+belokannya.
+
+**Pembatas laju yang gagal.** Sebelum melandai, dicoba membatasi
+seberapa cepat tapaknya boleh bergeser — 0,33 meter dalam 42 milidetik
+terbaca seperti glitch yang pantas dipagari. Hasilnya lebih buruk
+(0,33 → 0,47 m): lompatan itu ternyata bukan glitch melainkan transisi
+sujud yang sungguhan, dan membatasinya membuat sosoknya tertinggal
+berframe-frame. Soft-min untuk melunakkan patahan `min` juga dicoba dan
+tidak memperbaiki apa pun di semua nilai ketajaman, sambil menambah
+galat 2,6 cm pada keyframe-nya sendiri. Keduanya dibuang; akar
+masalahnya ada di pop 123° itu, bukan di penapakannya.
+
 #### Tahap ketiga yang dibuang, dan kenapa itu penting
 
 Pernah ada tahap ketiga: memaksa panjang tiap tulang ke median seluruh
@@ -669,8 +731,14 @@ orang apa adanya.
 - **Sendi yang tertutup lebih dari 0,4 detik dibekukan.** Celah lebih
   pendek dijembatani; yang lebih panjang ditahan di rotasi terakhirnya,
   karena menebak lebih jauh dari itu mengarang gerakan yang tidak
-  pernah ada. Anggota badan yang hilang lama akan terlihat beku lalu
-  menyentak saat terbaca kembali.
+  pernah ada. Anggota badan yang hilang lama akan terlihat beku —
+  tapi tidak lagi menyentak saat terbaca kembali, karena pelepasannya
+  melandai 0,4 detik.
+- **Tidak ada perpindahan akar, dan tidak akan pernah ada dari satu
+  kamera.** `worldLandmarks` menaruh titik asalnya di antara pinggul
+  tiap frame, jadi melompat, berjalan maju, dan naik tangga semuanya
+  hilang. Penapakan lantai menyimpulkan ketinggian dari posenya, tapi
+  ia tidak bisa membedakan orang melompat dari orang berjinjit.
 - **Model statis tidak bisa dianimasikan.** GLB tanpa skeleton —
   `"skins": []` di glTF-nya, lazim untuk hasil scan atau konversi OBJ —
   bisa dilihat tapi tidak bisa jadi sasaran retarget. Tidak ada tulang

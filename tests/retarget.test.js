@@ -314,6 +314,151 @@ test('nama tulang ber-titik dua tetap menghasilkan track yang terpasang', functi
   });
 });
 
+/* ------------------------------------------------------------------ *
+ * Menapak di lantai
+ * ------------------------------------------------------------------ *
+ * Deteksi pose TIDAK memberi perpindahan akar: worldLandmarks MediaPipe
+ * menaruh titik asalnya di antara kedua pinggul pada setiap frame, jadi
+ * orang yang sujud sampai ke lantai tetap terekam dengan pinggul
+ * terpaku di tempat. Tanpa penapakan, sosoknya cuma bisa berputar di
+ * sekitar pinggulnya — dan saat badannya mendatar, dia mendatar DI
+ * UDARA setinggi pinggul orang berdiri.
+ *
+ * Diuji dengan 70 frame keluaran MediaPipe sungguhan dari orang sujud,
+ * bukan dengan gerakan buatan: yang mau dijaga justru perilakunya pada
+ * gerakan yang benar-benar turun ke lantai.
+ */
+
+section('Menapak di lantai');
+
+var Avatar = require(path.join(__dirname, '..', 'js', 'avatar.js'));
+var Refine = require(path.join(__dirname, '..', 'js', 'poserefine.js'));
+
+var prostration = (function () {
+  var fs = require('fs');
+  var raw = JSON.parse(fs.readFileSync(
+    path.join(__dirname, 'fixtures', 'pose-prostration.json'), 'utf8'));
+  return {
+    fps: raw.fps,
+    frames: raw.frames.map(function (f) {
+      return {
+        time: f.t,
+        landmarks: f.l.map(function (q) {
+          return q === 0
+            ? { x: 0, y: 0, z: 0, visibility: 0 }
+            : { x: q[0], y: q[1], z: q[2], visibility: q[3] };
+        })
+      };
+    })
+  };
+})();
+
+/**
+ * Rentang ketinggian sendi TERENDAH sepanjang klip, termasuk di
+ * antara keyframe.
+ *
+ * Titik tengah antar-kunci ikut diperiksa dengan sengaja: rotasi
+ * di-slerp melengkung sementara posisi akar di-lerp lurus, jadi sosok
+ * yang pas di kedua kuncinya masih bisa menembus lantai di antaranya.
+ */
+function floorRange(avatar, clip) {
+  var mixer = new THREE.AnimationMixer(avatar.root);
+  mixer.clipAction(clip).play();
+  var bones = avatar.skeleton.bones;
+  var lo = Infinity, hi = -Infinity;
+  var track = null;
+  clip.tracks.forEach(function (t) { if (/\.position$/.test(t.name)) track = t; });
+  var times = track ? track.times : [0, clip.duration];
+  var v = new THREE.Vector3();
+
+  for (var i = 0; i < times.length; i++) {
+    var span = (i < times.length - 1) ? 8 : 1;
+    for (var k = 0; k < span; k++) {
+      var t = times[i] + (i < times.length - 1 ? (times[i + 1] - times[i]) * k / span : 0);
+      mixer.setTime(t);
+      avatar.root.updateMatrixWorld(true);
+      var lowest = Infinity;
+      for (var b = 0; b < bones.length; b++) {
+        bones[b].getWorldPosition(v);
+        if (v.y < lowest) lowest = v.y;
+      }
+      if (lowest < lo) lo = lowest;
+      if (lowest > hi) hi = lowest;
+    }
+  }
+  mixer.stopAllAction();
+  return { lo: lo, hi: hi };
+}
+
+function restFloorOf(avatar) {
+  avatar.root.updateMatrixWorld(true);
+  var v = new THREE.Vector3(), lowest = Infinity;
+  avatar.skeleton.bones.forEach(function (b) {
+    b.getWorldPosition(v);
+    if (v.y < lowest) lowest = v.y;
+  });
+  return lowest;
+}
+
+function prostrationCapture() {
+  return P.build(Refine.refine(prostration.frames, { sampleFps: prostration.fps }).frames, {});
+}
+
+test('tanpa penapakan, sosoknya memang melayang', function () {
+  // Asersi yang membuktikan masalahnya ADA. Tanpa ini, test di bawahnya
+  // bisa lulus karena gerakannya kebetulan datar, bukan karena
+  // penapakannya bekerja.
+  var a = Avatar.build({});
+  var out = R.retarget(prostrationCapture(), a.skeleton, { ground: false });
+  var floor = restFloorOf(Avatar.build({}));
+  var r = floorRange(a, out.clip);
+  console.log('      tanpa penapakan: titik terendah ' + r.lo.toFixed(3) +
+    ' .. ' + r.hi.toFixed(3) + ' m (lantai ' + floor.toFixed(3) + ')');
+  assert(r.hi - floor > 0.3,
+    'sosoknya tidak melayang, jadi test penapakan tidak membuktikan apa-apa: ' +
+    (r.hi - floor).toFixed(3) + ' m');
+});
+
+test('dengan penapakan, sosoknya tetap menempel lantai', function () {
+  var a = Avatar.build({});
+  var out = R.retarget(prostrationCapture(), a.skeleton, {});
+  var floor = restFloorOf(Avatar.build({}));
+  var r = floorRange(a, out.clip);
+  console.log('      dengan penapakan: titik terendah ' + r.lo.toFixed(3) +
+    ' .. ' + r.hi.toFixed(3) + ' m (lantai ' + floor.toFixed(3) + ')');
+  assert(out.grounded, 'penapakan tidak menyala secara default');
+  // Lima sentimeter pada sosok setinggi 1,78 m. Longgar dengan sengaja:
+  // yang dijaga "tidak melayang dan tidak tenggelam", bukan ketelitian
+  // sub-milimeter yang memang tidak bisa dijanjikan di antara keyframe.
+  assert(Math.abs(r.hi - floor) < 0.05,
+    'melayang ' + (r.hi - floor).toFixed(3) + ' m di atas lantai');
+  assert(Math.abs(r.lo - floor) < 0.05,
+    'tenggelam ' + (floor - r.lo).toFixed(3) + ' m di bawah lantai');
+});
+
+test('penapakan bisa dimatikan', function () {
+  var a = Avatar.build({});
+  var out = R.retarget(prostrationCapture(), a.skeleton, { ground: false });
+  assert(out.grounded === false, 'opsi ground: false diabaikan');
+});
+
+test('tanpa gerak akar sama sekali, penapakan tidak mengarang gerak', function () {
+  // Rig yang dipakai di test lain berdiri diam. Penapakan tidak boleh
+  // menggesernya naik-turun: kalau posenya tidak berubah, tapaknya juga
+  // tidak boleh berubah.
+  var a = Avatar.build({});
+  var still = prostrationCapture();
+  // bekukan: semua frame memakai rotasi frame pertama
+  still.tracks.forEach(function (t) {
+    var stride = t.type === 'quaternion' ? 4 : 3;
+    for (var i = stride; i < t.values.length; i++) t.values[i] = t.values[i % stride];
+  });
+  var out = R.retarget(still, a.skeleton, {});
+  var r = floorRange(a, out.clip);
+  assert(r.hi - r.lo < 1e-3,
+    'pose beku tapi tapaknya bergerak ' + (r.hi - r.lo).toFixed(5) + ' m');
+});
+
 section('Rig yang tidak memadai');
 
 test('rig tanpa tulang yang dikenali tidak menghasilkan klip', function () {

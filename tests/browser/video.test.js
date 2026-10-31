@@ -191,6 +191,55 @@ const r = H.createReporter('Video');
   r.check('animasi ikut terekspor',
     !!gltf && !!gltf.animations && gltf.animations.length > 0);
 
+  r.section('Sosoknya tetap terbingkai sepanjang klip');
+  // Penjaga KASAR, dan disebut begitu dengan sengaja.
+  //
+  // Keluhan yang membawanya: "viewnya aneh" — sosoknya melayang di
+  // udara saat sujud. Penyebabnya sudah dibereskan di tempat lain
+  // (penapakan lantai di js/retarget.js) dan dijaga di
+  // tests/retarget.test.js dengan 70 frame sujud sungguhan, karena cuma
+  // di situ masalahnya bisa diukur.
+  //
+  // Asersi di sini TIDAK menangkap bug itu — sudah dicoba dengan
+  // mematikan penapakannya, dan semuanya tetap lulus. Sebabnya klip uji
+  // di berkas ini foto orang BERDIRI yang diputar: sosoknya tidak
+  // pernah mendatar, jadi tidak ada yang melayang.
+  //
+  // Yang dijaga di sini hal yang lebih kasar dan tetap pantas dijaga:
+  // apa pun yang keluar dari jalur tangkap-video, hasilnya harus tetap
+  // berupa sosok yang terlihat utuh di layar — bukan titik, bukan
+  // banjir piksel, bukan terpotong tepi.
+  {
+    const spots = [0, 0.25, 0.5, 0.75, 0.95];
+    let worstCover = 1, bestCover = 0, clipped = [];
+    for (const frac of spots) {
+      await page.evaluate((f) => {
+        const t = document.getElementById('timeline');
+        t.value = String(f * (parseFloat(t.max) || 1));
+        t.dispatchEvent(new Event('input', { bubbles: true }));
+      }, frac);
+      await page.waitForTimeout(250);
+      const box = await H.measureSilhouette(page);
+      if (!box) { clipped.push(frac + ': tidak ada sosok sama sekali'); continue; }
+      if (box.coverage < worstCover) worstCover = box.coverage;
+      if (box.coverage > bestCover) bestCover = box.coverage;
+      // Menyentuh tepi berarti terpotong: sosoknya lebih besar dari
+      // yang terlihat, dan sebagian sudah keluar layar.
+      if (box.left < 0.01 || box.right > 0.99 || box.top < 0.01 || box.bottom > 0.99) {
+        clipped.push(frac + ': kotak ' + box.left.toFixed(2) + '–' + box.right.toFixed(2) +
+          ' × ' + box.top.toFixed(2) + '–' + box.bottom.toFixed(2));
+      }
+    }
+    r.info('luas sosok di layar: ' + (worstCover * 100).toFixed(1) + '% – ' +
+      (bestCover * 100).toFixed(1) + '%');
+    r.check('sosoknya tidak pernah terpotong tepi layar', clipped.length === 0,
+      clipped.join(' | '));
+    r.check('sosoknya tidak pernah menyusut jadi titik', worstCover > 0.004,
+      (worstCover * 100).toFixed(2) + '%');
+    r.check('sosoknya tidak pernah membanjiri layar', bestCover < 0.40,
+      (bestCover * 100).toFixed(1) + '%');
+  }
+
   r.section('Sosoknya benar-benar bergerak di layar');
   // Asersi yang dulu TIDAK ADA, dan karena itu bug ini lolos.
   //

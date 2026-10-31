@@ -297,7 +297,93 @@ function parseGLB(buf) {
 const waitIdle = (page, timeout = 30000) =>
   page.waitForFunction(() => !document.getElementById('overlay').classList.contains('active'), null, { timeout });
 
+/*
+ * Kotak batas sosok yang BENAR-BENAR terender, diukur dari piksel.
+ *
+ * Dipakai bersama oleh framing.test.js dan video.test.js: keduanya
+ * menanyakan hal yang sama — di mana model berada di layar dan seberapa
+ * besar — dan keduanya tidak bisa menjawabnya dari state aplikasi,
+ * karena yang salah justru kameranya.
+ */
+const OVERLAY_SELECTORS = '.stats-card, .ab-switch, .legend, .toast, .overlay';
+
+async function measureSilhouette(page) {
+  // Screenshot elemen ikut menangkap apa pun yang menumpuk di atasnya —
+  // panel statistik dan pil A/B akan terbaca sebagai piksel model dan
+  // membuat pengukuran ini lolos karena alasan yang salah.
+  await page.evaluate((sel) => {
+    document.querySelectorAll(sel).forEach((el) => { el.dataset.prevVis = el.style.visibility; el.style.visibility = 'hidden'; });
+  }, OVERLAY_SELECTORS);
+
+  const shot = await page.locator('#canvas-host canvas').screenshot();
+
+  await page.evaluate((sel) => {
+    document.querySelectorAll(sel).forEach((el) => { el.style.visibility = el.dataset.prevVis || ''; });
+  }, OVERLAY_SELECTORS);
+
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    await new Promise((res, rej) => {
+      img.onload = res; img.onerror = rej;
+      img.src = 'data:image/png;base64,' + b64;
+    });
+    const w = 480, h = Math.round(480 * img.height / img.width);
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+
+    const lumAt = (i) => (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
+
+    // Ambang dihitung dari gambarnya sendiri, bukan angka tetap.
+    //
+    // Versi sebelumnya memakai `lum > 0.55`, yang dikalibrasi ke keluaran
+    // three r128. Sejak r152 ColorManagement menyala secara default, jadi
+    // warna material ditafsirkan sebagai sRGB lalu dikonversi ke linear —
+    // nada keluarannya bergeser dan bagian model yang lebih gelap jatuh
+    // di bawah 0.55. Kotaknya lalu memotong kaki model: ukurannya menyusut
+    // dan titik tengahnya naik, padahal framing kameranya tidak berubah.
+    //
+    // Yang diukur test ini geometri (di mana model di layar), bukan nada
+    // warna. Jadi ambangnya diturunkan dari latar: piksel dianggap model
+    // kalau cukup jauh di atas latar relatif terhadap rentang terang
+    // gambar itu. Garis grid yang cuma sedikit di atas latar tetap
+    // terbuang, sementara sisi gelap model ikut terhitung.
+    let bg = 1, peak = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const l = lumAt(i);
+      if (l < bg) bg = l;
+      if (l > peak) peak = l;
+    }
+    const cut = bg + (peak - bg) * 0.35;
+
+    let minX = w, minY = h, maxX = -1, maxY = -1, count = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (lumAt(i) > cut) {
+          count++;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return null;
+    return {
+      cut: cut,
+      left: minX / w, right: maxX / w, top: minY / h, bottom: maxY / h,
+      cx: (minX + maxX) / 2 / w, cy: (minY + maxY) / 2 / h,
+      width: (maxX - minX) / w, height: (maxY - minY) / h,
+      coverage: count / (w * h)
+    };
+  }, shot.toString('base64'));
+}
+
 module.exports = {
   buildSite, buildStandaloneSite, launch, createReporter, parseGLB, waitIdle, OUT,
-  ensureMediaPipeModel, ensurePersonImage, MP_CACHE, serveDir, TMP
+  ensureMediaPipeModel, ensurePersonImage, MP_CACHE, serveDir, TMP,
+  measureSilhouette
 };
