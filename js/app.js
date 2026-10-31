@@ -867,9 +867,19 @@
 
       $('overlay-sub').textContent = tr('video.building');
 
+      // Titik sendi dibereskan DULU, sebelum jadi rotasi.
+      //
+      // Urutannya bukan selera. posemocap menyimpulkan rotasi dengan
+      // mengarahkan tulang ke sendi anaknya, jadi kesalahan posisi
+      // sendi masuk langsung jadi kesalahan rotasi — dan kesalahan di
+      // pangkal rantai ikut memutar seluruh anggota badan di bawahnya.
+      // Membereskannya setelah jadi rotasi berarti membereskan
+      // kesalahan yang sudah menyebar.
+      var pre = PoseRefine.refine(capture.frames, { sampleFps: capture.sampleFps });
+
       // Satuan MediaPipe adalah meter dengan titik asal di antara pinggul.
       // Dibiarkan apa adanya: penskalaan skena sudah mengikuti ukuran model.
-      var result = PoseMocap.build(capture.frames, {});
+      var result = PoseMocap.build(pre.frames, {});
       var rig = PosePipeline.buildRig(result, {
         name: state.fileName,
         clipName: 'Capture'
@@ -882,6 +892,7 @@
       }
 
       state.captureStats = {
+        refine: pre.stats,
         detected: capture.detected,
         total: capture.frames.length,
         sampleFps: capture.sampleFps,
@@ -910,7 +921,13 @@
         total: capture.frames.length,
         fps: capture.sampleFps,
         held: result.stats.bonesHeld,
-        deg: moved.toFixed(1)
+        deg: moved.toFixed(1),
+        // Sebaran panjang tulang: seberapa payah detektornya di video
+        // ini. Tulang orang tidak memanjang-memendek, jadi setiap
+        // persen di sini kesalahan kedalaman. Dilaporkan, tidak
+        // dikoreksi — alasannya di kepala js/poserefine.js.
+        filled: pre.stats.gapsFilled,
+        spread: pre.stats.spread.mean.toFixed(1)
       });
       if (percent < 60) {
         toast(tr('video.partial', { percent: percent }), true);
