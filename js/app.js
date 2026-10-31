@@ -1020,6 +1020,52 @@
     var available = state.root && ThreeAdapter.hasSkinning(state.root);
     $('opt-skin').disabled = !available;
     $('skin-status').textContent = available ? '' : tr('skin.noskeleton');
+
+    // Rangka otomatis cuma ditawarkan kalau memang ada yang bisa
+    // ditolong: ada model, dan model itu belum punya tulang.
+    var offer = !!state.root && !available && state.modelSource !== 'capture';
+    $('btn-autorig').style.display = offer ? '' : 'none';
+    $('autorig-note').style.display = offer ? '' : 'none';
+  }
+
+  /**
+   * Tebak rangka dari bentuk model, lalu pasang.
+   *
+   * Setelah ini model yang tadinya patung jadi rig sungguhan: opsi
+   * skinning terbuka, dan tangkapan video bisa dipindahkan ke situ.
+   */
+  function runAutoRig() {
+    if (!state.root) return;
+    showOverlay(tr('autorig.working'));
+    // Satu putaran event supaya overlay-nya sempat tergambar sebelum
+    // perhitungan bobot mengunci main thread.
+    setTimeout(function () {
+      var res;
+      try {
+        res = AutoRig.fit(state.root, {});
+      } catch (err) {
+        console.warn('Rangka otomatis gagal:', err);
+        res = { ok: false, reason: String(err && err.message || err) };
+      }
+      hideOverlay();
+
+      if (!res.ok) {
+        toast(tr('autorig.failed', { reason: res.reason }), true);
+        return;
+      }
+
+      var skeleton = Retarget.findSkeleton(state.root);
+      var map = skeleton ? Retarget.matchBones(skeleton.bones.map(function (b) { return b.name; })) : {};
+      var matched = Retarget.CANONICAL.filter(function (c) { return map[c]; }).length;
+
+      state.skinReport = null;
+      updateSkinControls();
+      renderSkinReport();
+      refreshButtons();
+      toast(tr('autorig.done', {
+        bones: res.report.bones, meshes: res.report.meshes, matched: matched
+      }));
+    }, 0);
   }
 
   function readOptions() {
@@ -1558,6 +1604,7 @@
     window.addEventListener('drop', function (e) { e.preventDefault(); });
 
     $('btn-demo').addEventListener('click', buildDemo);
+    $('btn-autorig').addEventListener('click', runAutoRig);
 
     var videoZone = $('video-dropzone');
     videoZone.addEventListener('click', function () { $('video-input').click(); });

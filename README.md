@@ -508,6 +508,7 @@ js/posemocap.js             titik sendi → rotasi tulang (tanpa dependensi)
 js/posepipeline.js          rig three.js dari keluaran posemocap
 js/retarget.js              pindahkan tangkapan ke rig model lain
 js/avatar.js                avatar manusia ber-rig untuk contoh bawaan
+js/autorig.js               tebak rangka dari bentuk mesh tanpa tulang
 js/posedetect.js            jembatan ke MediaPipe Pose
 js/three-adapter.js         jembatan THREE.AnimationClip ↔ engine
 js/app.js                   viewer, kontrol, export
@@ -521,6 +522,7 @@ tests/poserefine.test.js    ukur pembenahan: acuan buatan + frame detektor sungg
 tests/fixtures/             70 frame keluaran MediaPipe nyata, penjaga tetap
 tests/retarget.test.js      penjaga pencocokan nama tulang & matematika retarget
 tests/avatar.test.js        penjaga rangka, bobot skin, dan cacat klip contoh
+tests/autorig.test.js       ukur tebakan rangka terhadap rangka yang sudah diketahui
 tests/i18n.test.js          penjaga paritas kamus dua bahasa
 tests/standalone.test.js    penjaga sinkronisasi berkas rakitan
 tests/browser/              test end-to-end di browser sungguhan
@@ -739,10 +741,11 @@ orang apa adanya.
   tiap frame, jadi melompat, berjalan maju, dan naik tangga semuanya
   hilang. Penapakan lantai menyimpulkan ketinggian dari posenya, tapi
   ia tidak bisa membedakan orang melompat dari orang berjinjit.
-- **Model statis tidak bisa dianimasikan.** GLB tanpa skeleton —
+- **Model statis perlu dirangka dulu.** GLB tanpa skeleton —
   `"skins": []` di glTF-nya, lazim untuk hasil scan atau konversi OBJ —
-  bisa dilihat tapi tidak bisa jadi sasaran retarget. Tidak ada tulang
-  untuk digerakkan.
+  bisa dilihat tapi tidak bisa jadi sasaran retarget. Rangka otomatis
+  bisa menebakkannya dari bentuk, tapi hanya untuk sosok humanoid
+  berdiri berpose T; selain itu dia menolak.
 - **Perbaikan skin bekerja pada topologi, bukan pada makna anatomi.**
   Penghalusan envelope tidak tahu mana siku dan mana lutut; ia hanya
   melandaikan medan bobot. Untuk rig yang envelope-nya memang sengaja
@@ -810,6 +813,97 @@ lutut cuma menekuk satu arah) dan dekomposisi twist. Keduanya butuh
 prior yang dipelajari dari data, bukan aturan tangan — jadi kalau
 dikerjakan, harus diukur pada `tests/fixtures/pose-prostration.json`
 dulu, bukan pada benchmark buatan.
+
+## Rangka otomatis
+
+Model tanpa tulang bisa dipasangi rangka yang ditebak dari **bentuknya**.
+Tombolnya muncul sendiri saat model yang dimuat tidak punya skeleton.
+Setelah terpasang, opsi skinning terbuka dan tangkapan video bisa
+dipindahkan ke situ seperti model ber-rig biasa.
+
+Diuji pada V-Bot 3 MB: 64.068 vertex, 12 mesh, **113 milidetik**, 21
+tulang, 15 dari 15 tulang kanonik dikenali retarget.
+
+### Yang diukur, dan yang ditebak
+
+Pembedaan ini bukan basa-basi — dia menentukan seberapa jauh hasilnya
+pantas dipercaya, dan ikut dilaporkan oleh modulnya.
+
+**Terbaca dari bentuk**, karena meninggalkan jejak yang jelas di siluet:
+
+| | caranya |
+|---|---|
+| rentang lengan | irisan mendatar terlebar; pose T membuat lengan jauh melampaui badan |
+| tinggi bahu | rata-rata ketinggian titik-titik lengan |
+| lebar dada | lebar irisan tepat **di bawah** garis lengan, di mana lengan belum ikut terhitung |
+| mata kaki | ketinggian di mana ketebalan arah Z turun kembali setipis betis — telapak menjulur ke depan, betis tidak |
+| sumbu tiap tungkai | centroid irisan, dipisah kiri dan kanan |
+
+**Ditebak dari proporsi**, karena tidak ada di bentuknya:
+
+- **Lutut dan siku** — ditaruh di tengah rantainya. Lutut orang berdiri
+  tegak tidak menonjol, dan siku di pose T berada di tengah lengan
+  lurus. Menebaknya dari bentuk justru lebih rapuh.
+- **Sendi bahu** — pada pecahan lebar dada. Jaraknya dari sumbu tengah
+  adalah pilihan rig, bukan ciri bentuk; lihat di bawah.
+- **Selangkangan dan leher** — diperkirakan, lalu *diperhalus* oleh
+  pengukuran kalau pengukurannya masuk akal. Tidak pernah ditimpa.
+
+Diukur terhadap rangka avatar bawaan yang posisinya sudah diketahui —
+mesh-nya dibuang tulangnya lebih dulu — tiap sendi meleset **rata-rata
+2,3% tinggi badan, terburuk 4,1%**. Sekitar 4 cm pada sosok 1,78 m.
+
+### Tiga cara modul ini pernah salah
+
+Semuanya ketahuan dari pengukuran, bukan dari melihat hasilnya, dan
+ketiganya ditinggalkan di kode sebagai catatan supaya tidak terulang.
+
+**Memisahkan lengan dari badan lewat ketebalan Z.** Dada tebal, lengan
+tipis — masuk akal, dan gagal dua kali ke arah berlawanan. Pertama
+membaca pangkal lengan dua kali terlalu jauh karena ketebalan acuannya
+diambil dari bin yang memuat leher. Diperbaiki, dia lalu membaca
+terlalu dekat, karena pada avatar bawaan selongsong **bahu** memang
+setipis lengannya. Yang terakhir bukan bug yang bisa ditambal: "di mana
+mesh menipis" pada sosok itu sungguh-sungguh 0,055 sementara sendi
+bahunya di 0,18. Jaraknya tidak ada di data. Diganti dengan mengukur
+satu hal yang memang ada — lebar dada — lalu menaruh sendinya pada
+pecahan darinya.
+
+**Mencari selangkangan dari kolom tengah yang kosong.** Gagal total
+pada sosok berkaki rapat: pada avatar bawaan, yang pahanya bersentuhan,
+kolom tengahnya terisi di setiap ketinggian dari telapak kaki sampai
+kepala, dan detektornya menaruh selangkangan di lantai. Pada V-Bot
+kebalikannya: celahnya bersih, tapi habis di 18% tinggi karena di atas
+situ pahanya sudah rapat — sementara selangkangannya di sekitar 50%.
+Ruang antar-tungkai memang kosong di tengah; itu bukan selangkangan.
+Sekarang angkanya diperkirakan lebih dulu, dan pengukuran cuma dipakai
+kalau jatuh di 33–62% tinggi.
+
+**Mencari mata kaki dari lantai ke atas.** Ujung jari kaki sendiri
+tipis, jadi irisan paling bawah sudah lolos ambang "setipis betis" dan
+mata kakinya terbaca **di bawah lantai**. Sekarang pencariannya mulai
+dari puncak telapak.
+
+### Kapan dia menolak
+
+Rangka yang sendinya meleset melipat mesh di tempat yang bukan sendi,
+dan itu lebih buruk daripada tidak punya rangka. Jadi setiap andaian
+diperiksa — rentang lengan terhadap tinggi, lengan terbaca di kedua
+sisi, bahu di 55–95% tinggi, selangkangan di 25–70%, urutan
+selangkangan/bahu/leher, mata kaki di antara lantai dan selangkangan —
+dan kalau ada yang tidak masuk akal, modulnya mengembalikan alasannya
+alih-alih rangka. Bola, kotak, tabung tegak, bidang datar dan sosok
+terbalik semuanya ditolak, dan ada test untuk masing-masing.
+
+### Batasnya
+
+Dia mengandaikan **sosok humanoid berdiri tegak menghadap +Z dengan
+lengan terentang ke samping** — pose T atau yang mendekatinya. Pose A
+yang landai masih lolos; lengan yang terlipat tidak. Jari tangan, jari
+kaki dan ekspresi wajah tidak ikut dirangka. Bobot skin-nya murni dari
+jarak ke segmen tulang, jadi bagian yang berdekatan tapi tidak
+berhubungan — tangan yang menempel di paha, misalnya — akan saling
+tarik.
 
 ## Model statis tidak bisa dianimasikan
 

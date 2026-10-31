@@ -26,6 +26,11 @@
       'sec.source': 'Sumber Animasi',
       'drop.label': 'Taruh file .GLB / .GLTF / .FBX',
       'drop.sub': 'atau klik untuk pilih file',
+      'btn.autorig': '\uD83E\uDDB4 Pasang Rangka Otomatis',
+      'note.autorig': 'Model ini tidak punya tulang, jadi belum bisa dianimasikan. Rangka bisa ditebak dari bentuknya — perlu sosok humanoid yang berdiri tegak dengan lengan terentang ke samping.',
+      'autorig.done': 'Rangka terpasang: {bones} tulang, {meshes} mesh, {matched} dari 15 tulang kanonik dikenali retarget.',
+      'autorig.failed': 'Rangka otomatis tidak bisa dipasang pada model ini — {reason}.',
+      'autorig.working': 'Menebak rangka dari bentuk model…',
       'btn.demo': '🎮 Muat Demo (animasi sengaja patah)',
 
       'sec.video': 'Tangkap dari Video',
@@ -172,6 +177,11 @@
       'sec.source': 'Animation Source',
       'drop.label': 'Drop a .GLB / .GLTF / .FBX file',
       'drop.sub': 'or click to browse',
+      'btn.autorig': '\uD83E\uDDB4 Auto-rig',
+      'note.autorig': 'This model has no bones, so it cannot be animated yet. A skeleton can be inferred from its shape — it needs an upright humanoid with arms out to the sides.',
+      'autorig.done': 'Skeleton fitted: {bones} bones, {meshes} meshes, {matched} of 15 canonical bones recognised by retargeting.',
+      'autorig.failed': 'Auto-rigging cannot be applied to this model — {reason}.',
+      'autorig.working': 'Inferring a skeleton from the model shape…',
       'btn.demo': '🎮 Load demo (deliberately choppy)',
 
       'sec.video': 'Capture from Video',
