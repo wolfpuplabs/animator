@@ -49,6 +49,27 @@ const r = H.createReporter('Retarget');
    * Karakter ber-rig, dinamai ala Mixamo
    * ---------------------------------------------------------------- */
 
+  r.section('Contoh bawaan sudah berupa rig');
+  // Dulu contoh bawaan cuma dua bola tanpa tulang, jadi fitur ini tidak
+  // bisa dicoba tanpa menyiapkan model sendiri lebih dulu.
+  const demo = await page.evaluate(() => {
+    let bones = 0, skinned = 0;
+    const names = [];
+    // scene aplikasi tidak diekspos; yang bisa diperiksa dari luar adalah
+    // hasil render dan daftar klip. Tulangnya diperiksa lewat modul.
+    const a = Avatar.build({});
+    a.boneNames.forEach(n => names.push(n));
+    return {
+      bones: a.skeleton.bones.length,
+      matched: Retarget.CANONICAL.filter(c => Retarget.matchBones(names)[c]).length,
+      clips: document.querySelectorAll('.clip-row').length
+    };
+  });
+  r.info('tulang avatar: ' + demo.bones + ', tercocok: ' + demo.matched + '/15');
+  r.check('contoh bawaan punya rangka', demo.bones >= 15, String(demo.bones));
+  r.check('seluruh tulang kanonik avatar terpetakan', demo.matched === 15, String(demo.matched));
+  r.check('contoh bawaan termuat dengan klipnya', demo.clips === 1, String(demo.clips));
+
   r.section('Memuat karakter ber-rig');
   const modelB64 = await page.evaluate(async () => {
     // Humanoid sederhana: satu tulang per anggota badan, nama Mixamo.

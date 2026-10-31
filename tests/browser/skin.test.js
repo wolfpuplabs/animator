@@ -135,8 +135,42 @@ function binChunk(buf) {
   await page.goto(url);
   await page.waitForTimeout(2200);
 
+  r.section('Contoh bawaan kini ber-rig');
+  // Dulu contoh bawaannya dua bola tanpa tulang, jadi panel skinning
+  // selalu terkunci saat halaman dibuka. Sekarang contohnya avatar
+  // ber-rig, jadi panelnya memang harus tersedia.
+  r.check('opsi skinning tersedia untuk avatar contoh',
+    !(await page.locator('#opt-skin').isDisabled()),
+    await page.locator('#skin-status').textContent());
+
   r.section('Model tanpa skeleton');
-  r.check('opsi skinning terkunci untuk demo', await page.locator('#opt-skin').isDisabled());
+  // Kasus terkuncinya tetap diuji, tapi dengan model yang memang tidak
+  // punya tulang — bukan dengan menumpang asumsi lama soal demo.
+  const plainGlb = await page.evaluate(async () => {
+    const root = new THREE.Group();
+    root.name = 'Kotak';
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshStandardMaterial({ color: 0x88ccff })));
+    const t = new Float32Array([0, 1]);
+    const clip = new THREE.AnimationClip('spin', 1, [
+      new THREE.QuaternionKeyframeTrack(root.children[0].uuid + '.quaternion',
+        t, new Float32Array([0, 0, 0, 1, 0, 0.38, 0, 0.92]))
+    ]);
+    const buf = await new Promise((res, rej) => {
+      new THREE.GLTFExporter().parse(root, res, rej, { binary: true, animations: [clip] });
+    });
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  });
+  await page.setInputFiles('#file-input',
+    { name: 'kotak.glb', mimeType: 'model/gltf-binary', buffer: Buffer.from(plainGlb, 'base64') });
+  await waitIdle(page);
+  await page.waitForTimeout(600);
+
+  r.check('opsi skinning terkunci untuk model tanpa tulang',
+    await page.locator('#opt-skin').isDisabled());
   r.check('alasannya dijelaskan',
     (await page.locator('#skin-status').textContent()).includes('tanpa skeleton'),
     await page.locator('#skin-status').textContent());
