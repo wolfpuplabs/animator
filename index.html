@@ -38,6 +38,8 @@
           <input type="file" id="file-input" accept=".gltf,.glb,.fbx,model/gltf-binary,model/gltf+json">
         </div>
         <button id="btn-demo" data-i18n="btn.demo">&#127918; Muat Demo (animasi sengaja patah)</button>
+        <button id="btn-autorig" style="display:none" data-i18n="btn.autorig">&#129460; Pasang Rangka Otomatis</button>
+        <div class="control-note" id="autorig-note" style="display:none" data-i18n="note.autorig">Model ini tidak punya tulang, jadi belum bisa dianimasikan. Rangka bisa ditebak dari bentuknya — perlu sosok humanoid yang berdiri tegak dengan lengan terentang ke samping.</div>
       </div>
 
       <div class="section" id="video-section">
@@ -249,6 +251,7 @@
   <script src="js/posepipeline.js"></script>
   <script src="js/retarget.js"></script>
   <script src="js/avatar.js"></script>
+  <script src="js/autorig.js"></script>
   <script src="js/posedetect.js"></script>
   <script src="js/fluidizer.js"></script>
   <script src="js/skinfix.js"></script>
