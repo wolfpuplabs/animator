@@ -394,5 +394,114 @@ test('simpangan gerak selalu berupa angka terhingga', function () {
   });
 });
 
+/* ------------------------------------------------------------------ *
+ * Melandai saat sendi terbaca lagi
+ * ------------------------------------------------------------------ */
+
+/**
+ * Lengan kiri HILANG di tengah klip, lalu kembali di posisi yang jauh
+ * berbeda. Persis yang terjadi pada tungkai orang sujud: terlipat di
+ * bawah badan, tidak terbaca sepanjang gerakan, lalu muncul lagi
+ * dengan pose yang sama sekali lain.
+ */
+function occludedThenMoved(n, gapFrom, gapTo) {
+  return frames(n, function (i) {
+    var hidden = i >= gapFrom && i < gapTo;
+    // sebelum celah lengan mendatar; sesudahnya menunjuk ke bawah
+    var down = i >= gapTo;
+    var e = down ? [0.18, -0.23, 0] : [0.45, -0.5, 0];
+    var w = down ? [0.18, 0.02, 0] : [0.70, -0.5, 0];
+    var x = down ? [0.18, 0.10, 0] : [0.78, -0.5, 0];
+    if (hidden) return {
+      leftElbow: [0.45, -0.5, 0, 0.05],
+      leftWrist: [0.70, -0.5, 0, 0.05],
+      leftIndex: [0.78, -0.5, 0, 0.05]
+    };
+    return { leftElbow: e, leftWrist: w, leftIndex: x };
+  });
+}
+
+function worstStep(res, boneName) {
+  var track = null;
+  res.tracks.forEach(function (t) {
+    if (t.name === boneName + '.quaternion') track = t;
+  });
+  if (!track) return 0;
+  var n = track.values.length / 4, worst = 0;
+  for (var i = 1; i < n; i++) {
+    var d = 0;
+    for (var k = 0; k < 4; k++) d += track.values[(i - 1) * 4 + k] * track.values[i * 4 + k];
+    d = Math.min(1, Math.abs(d));
+    worst = Math.max(worst, 2 * Math.acos(d) * 180 / Math.PI);
+  }
+  return worst;
+}
+
+test('sendi yang lama tertutup tidak melompat saat terbaca lagi', function () {
+  // 30 frame pada 24 fps; lengan hilang frame 8..20.
+  var f = occludedThenMoved(30, 8, 20);
+  f.forEach(function (fr, i) { fr.time = i / 24; });
+
+  var snap = P.build(f, { releaseSeconds: 0 });
+  var eased = P.build(f, {});
+
+  var a = worstStep(snap, 'LeftUpperArm');
+  var b = worstStep(eased, 'LeftUpperArm');
+  console.log('      lonjakan satu frame: ' + a.toFixed(0) + '° → ' + b.toFixed(0) +
+    '° (' + eased.stats.bonesEased + ' frame dilandaikan)');
+  assert(a > 40, 'tanpa pelandaian seharusnya melompat besar, dapat ' + a.toFixed(0) + '°');
+  assert(b < a * 0.5, 'pelandaian tidak mengurangi lompatan: ' +
+    a.toFixed(0) + '° → ' + b.toFixed(0) + '°');
+  assert(eased.stats.bonesEased > 0, 'statistik pelandaian tidak dilaporkan');
+});
+
+test('pelandaian berakhir di pose yang sama persis', function () {
+  // Melandai tidak boleh MENGUBAH tujuannya — cuma caranya sampai ke
+  // sana. Kalau pose akhirnya ikut bergeser, yang terjadi bukan
+  // penghalusan tapi pemalsuan.
+  var f = occludedThenMoved(30, 8, 20);
+  f.forEach(function (fr, i) { fr.time = i / 24; });
+  var snap = P.build(f, { releaseSeconds: 0 });
+  var eased = P.build(f, {});
+
+  snap.tracks.forEach(function (ta) {
+    if (ta.type !== 'quaternion') return;
+    var tb = null;
+    eased.tracks.forEach(function (x) { if (x.name === ta.name) tb = x; });
+    var n = ta.values.length / 4;
+    var last = (n - 1) * 4;
+    var d = 0;
+    for (var k = 0; k < 4; k++) d += ta.values[last + k] * tb.values[last + k];
+    d = Math.min(1, Math.abs(d));
+    var deg = 2 * Math.acos(d) * 180 / Math.PI;
+    assert(deg < 0.01, ta.name + ' berakhir di pose berbeda: ' + deg.toFixed(3) + '°');
+  });
+});
+
+test('kedipan satu frame tidak ikut dilandaikan', function () {
+  // Melandai menunda data yang sudah benar, jadi dia cuma pantas untuk
+  // tahanan yang cukup panjang sampai lompatannya terlihat.
+  var f = frames(20, function (i) {
+    if (i !== 10) return {};
+    return { leftElbow: [0.45, -0.5, 0, 0.05] };
+  });
+  f.forEach(function (fr, i) { fr.time = i / 24; });
+  var res = P.build(f, {});
+  assert(res.stats.bonesEased === 0,
+    'kedipan satu frame ikut dilandaikan: ' + res.stats.bonesEased + ' frame');
+});
+
+test('pelandaian tidak pernah lebih panjang dari tahanannya', function () {
+  // Tahanan tiga frame tidak pantas dilandaikan selama tahanan tiga
+  // detik: landaian yang kepanjangan menahan data yang sudah bagus.
+  var f = occludedThenMoved(30, 8, 11);   // cuma 3 frame tertutup
+  f.forEach(function (fr, i) { fr.time = i / 24; });
+  var res = P.build(f, {});
+  // tiga tulang lengan kiri, masing-masing paling banyak 3 frame
+  assert(res.stats.bonesEased <= 9,
+    'dilandaikan ' + res.stats.bonesEased + ' frame untuk tahanan 3 frame');
+  assert(res.stats.bonesEased > 0, 'tahanan 3 frame tidak dilandaikan sama sekali');
+});
+
 console.log('\n' + (failed === 0 ? '✅ ' : '❌ ') + passed + ' passed, ' + failed + ' failed\n');
 if (failed) { failures.forEach(function (f) { console.log('  - ' + f); }); process.exit(1); }

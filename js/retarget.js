@@ -238,12 +238,39 @@
       r.parentWorldQuat = r.parent >= 0
         ? rest[r.parent].worldQuat
         : qNorm(qMul(r.worldQuat, qConj(r.localQuat)));
+      // Posisi dunia induknya, dibalik dari pose rest. Untuk tulang akar
+      // induknya ada di luar skeleton, jadi satu-satunya cara mengetahui
+      // titik tumpunya adalah mengurangkan offset lokalnya sendiri.
+      r.parentWorldPos = r.parent >= 0
+        ? rest[r.parent].worldPos
+        : subv(r.worldPos, rotate(r.parentWorldQuat, r.localPos));
     });
     return rest;
   }
 
   function distance(a, b) {
     return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  }
+
+  function subv(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+  function addv(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+
+  /**
+   * Ketinggian lantai dan tinggi rig pada pose rest.
+   *
+   * Lantainya sendi paling bawah, apa adanya. Soft-min pernah dicoba di
+   * sini — dengan alasan bahwa min punya patahan tajam saat sendi
+   * terendahnya berganti — dan diukur pada video salat dia tidak
+   * memperbaiki apa pun (simpangan antar-kunci tetap 0,33 m di semua
+   * nilai ketajaman yang dicoba) sambil menambah galat 2,6 cm pada
+   * kuncinya sendiri. Patahan itu bukan penyebabnya — penyebabnya
+   * sendi yang ditahan lama lalu menyentak; lihat catatan penapakan
+   * di bawah.
+   */
+  function restExtent(rest) {
+    var ys = rest.map(function (r) { return r.worldPos[1]; });
+    var lowest = Math.min.apply(null, ys), highest = Math.max.apply(null, ys);
+    return { floor: lowest, height: Math.max(highest - lowest, 1e-6) };
   }
 
   /** Panjang tungkai dipakai menskalakan perpindahan pinggul. */
@@ -263,8 +290,8 @@
   /**
    * @param {Object} capture keluaran PoseMocap.build
    * @param {THREE.Skeleton} skeleton skeleton model tujuan
-   * @param {Object} options { map, clipName, rootMotion }
-   * @returns {{clip, map, matched, missing, scale}} atau null kalau gagal
+   * @param {Object} options { map, clipName, rootMotion, ground }
+   * @returns {{clip, map, matched, missing, scale, grounded}} atau null
    */
   function retarget(capture, skeleton, options) {
     var opt = options || {};
@@ -309,6 +336,15 @@
       return da - db;
     });
 
+    // Penapakan ke lantai. Default menyala: tanpa perpindahan akar,
+    // sosok yang tidak ditapakkan akan melayang (lihat catatan di bawah).
+    var ground = opt.ground !== false && opt.rootMotion !== false;
+    var extent = restExtent(rest);
+    var floor = extent.floor;
+    var pos = [];
+    var liftY = [];        // koreksi tapak per frame, dalam ruang dunia
+    var hipLocals = [];    // posisi lokal pinggul sebelum dikoreksi
+
     var values = {};
     matched.forEach(function (c) { values[c] = []; });
 
@@ -349,7 +385,56 @@
         // ruang induknya, jadi diputar balik dulu.
         var inv = qConj(hr.parentWorldQuat);
         var d = rotate(inv, [dx, dy, dz]);
-        hipValuesOut.push(hr.localPos[0] + d[0], hr.localPos[1] + d[1], hr.localPos[2] + d[2]);
+        var local = [hr.localPos[0] + d[0], hr.localPos[1] + d[1], hr.localPos[2] + d[2]];
+
+        if (ground) {
+          // Turunkan sosoknya sampai menapak.
+          //
+          // Deteksi pose tidak memberi perpindahan akar SAMA SEKALI:
+          // worldLandmarks MediaPipe menaruh titik asalnya di antara
+          // kedua pinggul pada SETIAP frame, jadi orang yang sujud
+          // sampai ke lantai tetap terekam dengan pinggul terpaku di
+          // tempat — terukur satu milimeter sepanjang klip sepuluh
+          // detik. Akibatnya sosoknya cuma bisa berputar di sekitar
+          // pinggulnya: saat badannya mendatar, dia mendatar DI UDARA,
+          // setinggi pinggul orang berdiri.
+          //
+          // Yang hilang itu tidak bisa diambil dari data, tapi bisa
+          // disimpulkan dari posenya: apa pun yang paling bawah
+          // menyentuh lantai. Di berdiri itu telapak kaki, di sujud itu
+          // dahi, telapak tangan dan lutut. Jadi tiap frame dihitung
+          // sendinya, dicari yang terendah, lalu seluruh rig diturunkan
+          // sampai titik itu kembali ke ketinggian lantai pose rest.
+          //
+          // Diukur terhadap pose rest, bukan terhadap y=0, karena dua
+          // hal: rig tidak selalu dibuat dengan telapak kaki di titik
+          // asal, dan sendi kaki memang duduk di atas permukaan telapak.
+          // Dua selisih itu sama di rest maupun di animasi, jadi
+          // keduanya saling meniadakan.
+          var lowest = Infinity;
+          order.forEach(function (i) {
+            var r2 = rest[i];
+            var pw = r2.parent >= 0 ? world[r2.parent] : r2.parentWorldQuat;
+            var pp = r2.parent >= 0 ? pos[r2.parent] : r2.parentWorldPos;
+            var lp = (i === hipIndex) ? local : r2.localPos;
+            pos[i] = addv(pp, rotate(pw, lp));
+            if (pos[i][1] < lowest) lowest = pos[i][1];
+          });
+          liftY.push(floor - lowest);
+        }
+
+        hipLocals.push(local);
+        hipValuesOut.push(local[0], local[1], local[2]);
+      }
+    }
+
+    if (ground && liftY.length === frames) {
+      var hipInv = qConj(rest[hipIndex].parentWorldQuat);
+      for (var m = 0; m < frames; m++) {
+        var lf = rotate(hipInv, [0, liftY[m], 0]);
+        hipValuesOut[m * 3] = hipLocals[m][0] + lf[0];
+        hipValuesOut[m * 3 + 1] = hipLocals[m][1] + lf[1];
+        hipValuesOut[m * 3 + 2] = hipLocals[m][2] + lf[2];
       }
     }
 
@@ -369,7 +454,7 @@
     var duration = times[frames - 1] || capture.duration || 0;
     return {
       clip: new THREE.AnimationClip(opt.clipName || 'Capture', duration, tracks),
-      map: map, matched: matched, missing: missing, scale: scale
+      map: map, matched: matched, missing: missing, scale: scale, grounded: ground
     };
   }
 
