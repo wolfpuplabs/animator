@@ -152,14 +152,6 @@ const r = H.createReporter('Video');
   r.check('klip tangkapan ditambahkan ke klip bawaan', state.clips === 2, String(state.clips));
   r.check('klip tangkapan yang terpilih', /capture/i.test(state.activeRow), state.activeRow);
 
-  // Pembenahan titik sendi, diukur pada data MediaPipe SUNGGUHAN.
-  //
-  // tests/poserefine.test.js mengukurnya terhadap kebenaran acuan
-  // buatan, dan itu memang satu-satunya cara mengetahui arah errornya.
-  // Tapi derau buatan tidak pernah persis seperti derau sungguhan.
-  // Angka di sini datang dari deteksi pose yang benar-benar jalan atas
-  // video yang benar-benar didekode, jadi ini yang membuktikan
-  // modulnya berguna di luar labnya sendiri.
   r.info('mutu tangkapan: ' + state.quality);
   // Pembenahan titik sendi memang jalan di jalur yang sebenarnya.
   //
